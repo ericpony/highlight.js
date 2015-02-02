@@ -163,16 +163,8 @@
 			return ret;
 		})(createSyntaxRegex(lang));
 
-		if(options['lineno']) {
-			cache.codeArea = document.createElement('OL'); 
-		}else {
-			var ul = document.createElement('UL');
-			//ul.style.listStyleType = 'none';
-			//ul.style.padding = '10px';
-			//ul.style.overflow = 'visible';
-			cache.codeArea = document.createElement('UL');
-		}
-
+		cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
+			
 		while(1)
 		{
 			var ii = -1;
