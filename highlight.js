@@ -86,24 +86,22 @@
 		syntax.types    = syntax.types ?    { r:new RegExp(string2regex(syntax.types),'g'),    css:'type'} : '';
 		syntax.built_in = syntax.built_in ? { r:new RegExp(string2regex(syntax.built_in),'g'), css:'built-in' } : '';	
 		syntax.nominals  = !syntax.nominals ? null : {
-<<<<<<< HEAD
-			r:      new RegExp('(' + string2regex(syntax.nominals) + ') +([^\\n (<\[]+)', 'g'), 
-			css:    'built-in', 
-			update: (function() {
-								var built_in_types = {};
-								(syntax.built_in.split(' ')||[]).forEach(function(b){ built_in_types[b] = true });
-								return function(t) { 
-									if(built_in_types[t]) return;
-									built_in_types[t] = true;
-									var tt = '';
-									for(var t in built_in_types) tt += ' ' + t;
-									tt = tt.substr(1);
-									syntax.built_in.r = new RegExp(string2regex(tt),'g');
-									cache.m[cache.m.length-1] = 0;
-								}
-							})() 
+				r:      new RegExp('(' + string2regex(syntax.nominals) + ') +([^\\n (<\[]+)', 'g'), 
+				css:    'built-in', 
+				update: (function() {
+									var built_in_types = {};
+									(syntax.built_in.split(' ')||[]).forEach(function(b){ built_in_types[b] = true });
+									return function(t) { 
+										if(built_in_types[t]) return;
+										built_in_types[t] = true;
+										var tt = '';
+										for(var t in built_in_types) tt += ' ' + t;
+										tt = tt.substr(1);
+										syntax.built_in.r = new RegExp(string2regex(tt),'g');
+										cache.m[cache.m.length-1] = 0;
+									}
+								})() 
 		};
->>>>>>> 7d4a67bbc81892ac2ea2cfbfc8c6d9184487fcbf
 		syntax.processed = true;
 		return syntax;
 	}
