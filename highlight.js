@@ -86,7 +86,7 @@
 		syntax.types    = syntax.types ?    { r:new RegExp(string2regex(syntax.types),'g'), css:'type'} : '';
 		syntax.built_in = syntax.built_in ? { r:new RegExp(string2regex(syntax.built_in),'g'), css:'built-in' } : '';	
 		syntax.nominals  = !syntax.nominals ? null : {
-				r:      new RegExp('(' + string2regex(syntax.nominals) + ') +([^\\n (\[]+)', 'g'), 
+				r:      new RegExp('(' + string2regex(syntax.nominals) + ') +([^\\n (<\[]+)', 'g'), 
 				css:    'built-in', 
 				update: (function() {
 									var built_in_types = {};
