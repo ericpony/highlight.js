@@ -218,7 +218,7 @@
 		var snippets = document.getElementsByClassName(lang);
 		while(snippets.length) {
 			var code = snippets[0];
-			var options  = {lineno: code.attributes['lineno'] };
+			var options  = {lineno: 1||code.attributes['lineno'] };
 			createHighlightedCode(lang, code, options);
 		}
 	}

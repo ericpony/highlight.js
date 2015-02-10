@@ -42,9 +42,7 @@ color: black;
     color: silver;
     background-color: #FAFAFA;
     list-style: decimal outside !important;
-    margin: 1.5em;
-    margin-left: 1em;
-    margin-right: 1em;
+		margin: 1em;
     border: 1px solid lightgray;
     xborder-bottom-left-radius: 8px;
     xborder-bottom-right-radius: 8px;
@@ -60,7 +58,7 @@ color: black;
 }
 .sh ul {
     list-style-type: none;
-    padding: 10px;
+    padding: 0 1.5em !important;
     overflow: visible;
     margin: 1em !important;
     margin-left: 0 !important;
