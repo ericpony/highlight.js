@@ -4,25 +4,25 @@
 			nominals: 'type object trait class extends',
 			types: 'Int Char String Double Float Long Boolean Short Byte Any AnyRef Nothing Null Unit Iterator Map Set Seq Array List Vector Tuple[\\d]*',
 			keywords: 'type yield lazy override def with val var false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
-			built_in: ''
+			builtin: ''
 		},
 		'JavaScript': {
 			nominals: '',
 			types: '',
 			keywords: 'in if for while finally var new function do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
-			built_in: 'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl arguments require'
+			builtin: 'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl arguments require'
 		},
 		'Java': {
 			nominals: 'interface class extends implements',
 			types: 'int float char boolean void long short double String null',
 			keywords: 'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
-			built_in: ''
+			builtin: ''
 		},
 		'C++': {
 			nominals: '',
 			types: 'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
 			keywords: 'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
-			built_in: ''
+			builtin: ''
 		}
 	};
 	LANG['Cpp'] = LANG['C'] = LANG['C++'];
@@ -97,20 +97,20 @@
 	
 		syntax.keywords = syntax.keywords ? { r: new RegExp(string2regex(syntax.keywords),'g'), css: STYLE.keyword } : '';
 		syntax.types    = syntax.types ?    { r: new RegExp(string2regex(syntax.types),'g'),    css: STYLE.type } : '';
-		syntax.built_in = syntax.built_in ? { r: new RegExp(string2regex(syntax.built_in),'g'), css: STYLE.builtin } : '';	
+		syntax.builtin = syntax.builtin ? { r: new RegExp(string2regex(syntax.builtin),'g'), css: STYLE.builtin } : '';	
 		syntax.nominals  = !syntax.nominals ? null : {
 				r:      new RegExp('(' + string2regex(syntax.nominals) + ') +([^\\n (<\[]+)', 'g'), 
 				css:    STYLE.nominal, 
 				update: (function() {
-									var built_in_types = {};
-									(syntax.built_in.split(' ')||[]).forEach(function(b){ built_in_types[b] = true });
+									var builtin_types = {};
+									(syntax.builtin.split(' ')||[]).forEach(function(b){ builtin_types[b] = true });
 									return function(t) { 
-										if(built_in_types[t]) return;
-										built_in_types[t] = true;
+										if(builtin_types[t]) return;
+										builtin_types[t] = true;
 										var tt = '';
-										for(var t in built_in_types) tt += ' ' + t;
+										for(var t in builtin_types) tt += ' ' + t;
 										tt = tt.substr(1);
-										syntax.built_in.r = new RegExp(string2regex(tt),'g');
+										syntax.builtin.r = new RegExp(string2regex(tt),'g');
 										cache.m[cache.m.length-1] = 0;
 									}
 								})() 
