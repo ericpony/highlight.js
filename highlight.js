@@ -94,7 +94,7 @@
     var syntax = LANG[lang];
     if(!syntax) return null; 
     if(syntax.processed) return syntax;
-  
+    syntax.processed = true;
     syntax.keywords  = syntax.keywords ? { r: new RegExp(string2regex(syntax.keywords),'g'), css: STYLE.keyword } : {};
     syntax.types     = syntax.types ?    { r: new RegExp(string2regex(syntax.types),'g'),    css: STYLE.type } : {};
     syntax.built_in   = { r: syntax.built_in, css: STYLE.built_in };
@@ -113,11 +113,10 @@
                     r.index = syntax.built_in.r.index;
                     r.lastIndex = syntax.built_in.r.lastIndex;
                     syntax.built_in.r = r;
-                    cache.m[cache.m.length-1] = 0; // reset the last pos of searched text for built_in
+                    cache.m[cache.m.length-2] = 0; // reset the last pos of searched text for built_in
                   }
                 })() 
     } : {};
-    syntax.processed = true;
     return syntax;
   }
 
