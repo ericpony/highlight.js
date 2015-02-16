@@ -27,16 +27,29 @@
 	};
 	LANG['Cpp'] = LANG['C'] = LANG['C++'];
 
+	var STYLE = {// CSS classes
+		keyword:  'keyword', 
+		type:     'type',
+		builtin:  'built-in',
+		nominal:  'built-in',
+		string:   'string',
+		comment:  'comment',  // single line
+		comments: 'comments', // block
+		character:'char',
+		hex_value:'hex',      
+		numeric:  'value',
+		macro:    'macro'
+	};
+
 	var COMMON = [
-		{r:/\/\*[\s\S]*?\*\//gm, css:'comments'},
-		{r:/\/\/.*$/gm, css:'comment'},
-	//	{r:/^ *#.*/gm, css:'macro'},
-		{r:/"([^"\\\n]|\\.)*"/g, css:'string'},
-		{r:/'([^'\\\n]|\\.)*'/g, css:'char'},
-		{r:/[a-zA-Z]+\d+/g, css:''},
-	//	{r:/[^\W\d]\w*/g, css:'word'},
-		{r:/0[xX][\da-fA-F]+/g, css:'hex'},
-		{r:/\d*\.?\d+[eE]?\d*/g, css:'value'}
+		{r: /\/\*[\s\S]*?\*\//gm, css: STYLE.comments },
+		{r: /\/\/.*$/gm,          css: STYLE.comment },
+		{r: /^ *#.*/gm,           css: STYLE.macro },
+		{r: /"([^"\\\n]|\\.)*"/g, css: STYLE.string },
+		{r: /'([^'\\\n]|\\.)*'/g, css: STYLE.character },
+		{r: /[a-zA-Z]+\d+/g,      css: '' },
+		{r: /0[xX][\da-fA-F]+/g,  css: STYLE.hex_value },
+		{r: /\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric }
 	];
 
 	function unescape(text)
@@ -82,12 +95,12 @@
 		if(!syntax) return null; 
 		if(syntax.processed) return syntax;
 	
-		syntax.keywords = syntax.keywords ? { r:new RegExp(string2regex(syntax.keywords),'g'), css:'keyword'} : '';
-		syntax.types    = syntax.types ?    { r:new RegExp(string2regex(syntax.types),'g'),    css:'type'} : '';
-		syntax.built_in = syntax.built_in ? { r:new RegExp(string2regex(syntax.built_in),'g'), css:'built-in' } : '';	
+		syntax.keywords = syntax.keywords ? { r: new RegExp(string2regex(syntax.keywords),'g'), css: STYLE.keyword } : '';
+		syntax.types    = syntax.types ?    { r: new RegExp(string2regex(syntax.types),'g'),    css: STYLE.type } : '';
+		syntax.built_in = syntax.built_in ? { r: new RegExp(string2regex(syntax.built_in),'g'), css: STYLE.builtin } : '';	
 		syntax.nominals  = !syntax.nominals ? null : {
 				r:      new RegExp('(' + string2regex(syntax.nominals) + ') +([^\\n (<\[]+)', 'g'), 
-				css:    'built-in', 
+				css:    STYLE.nominal, 
 				update: (function() {
 									var built_in_types = {};
 									(syntax.built_in.split(' ')||[]).forEach(function(b){ built_in_types[b] = true });
@@ -195,7 +208,7 @@
 			colorize(text.slice(q, p), null);  // plain text in text[q...p]
 			if(token1)
 			{
-				colorize(token1 + ' ', 'keyword');
+				colorize(token1 + ' ', STYLE.keyword);
 				if(regexps[ii].update) regexps[ii].update(token2);
 			}
 			colorize(token2, regexps[ii].css);
