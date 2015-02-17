@@ -97,25 +97,25 @@
     syntax.processed = true;
     syntax.keywords  = syntax.keywords ? { r: new RegExp(string2regex(syntax.keywords),'g'), css: STYLE.keyword } : {};
     syntax.types     = syntax.types ?    { r: new RegExp(string2regex(syntax.types),'g'),    css: STYLE.type } : {};
-    syntax.built_in   = { r: syntax.built_in, css: STYLE.built_in };
+    syntax.built_in  = { r: syntax.built_in, css: STYLE.built_in };
+
+    var user_types = {}, built_in_regex = '';
+    if(syntax.built_in.r) syntax.built_in.r.split(' ').forEach(function(b){ user_types[b] = true; built_in_regex += b });
+    if(built_in_regex) syntax.built_in.r = new RegExp(string2regex(built_in_regex = string2regex(built_in_regex)),'g');
+
     syntax.type_ctor  = syntax.type_ctor ? {
         r:      new RegExp('(' + string2regex(syntax.type_ctor) + ') +([^\\n (<\[]+)', 'g'), 
         css:    STYLE.nominal, 
-        update: (function() {
-                  var user_types = {}, built_in_regex = '';
-                  if(syntax.built_in.r) syntax.built_in.r.split(' ').forEach(function(b){ user_types[b] = true; built_in_regex += b });
-                  if(built_in_regex) syntax.built_in.r = new RegExp(string2regex(built_in_regex = string2regex(built_in_regex)),'g');
-                  return function(t) { 
-                    if(user_types[t]) return;
-                    user_types[t] = true;
-                    built_in_regex = !built_in_regex ? ('\\b'+t+'\\b') : (built_in_regex+'|\\b'+t+'\\b');
-                    var r = new RegExp(built_in_regex, 'g');
-                    r.index = syntax.built_in.r.index;
-                    r.lastIndex = syntax.built_in.r.lastIndex;
-                    syntax.built_in.r = r;
-                    cache.m[cache.m.length-2] = 0; // reset the last pos of searched text for built_in
-                  }
-                })() 
+        update: function(t) { 
+                  if(user_types[t]) return;
+                  user_types[t] = true;
+                  built_in_regex = !built_in_regex ? ('\\b'+t+'\\b') : (built_in_regex+'|\\b'+t+'\\b');
+                  var r = new RegExp(built_in_regex, 'g');
+                  r.index = syntax.built_in.r.index;
+                  r.lastIndex = syntax.built_in.r.lastIndex;
+                  syntax.built_in.r = r;
+                  cache.m[cache.m.length-2] = 0; // reset the last pos of searched text for built_in
+                }
     } : {};
     return syntax;
   }
@@ -212,7 +212,7 @@
         if(regexps[ii].update) regexps[ii].update(token2);
       }
       colorize(token2, regexps[ii].css);
-      if(q==regexps[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
+      if(q == regexps[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
       q = regexps[ii].r.lastIndex;
     }// end of while
 
