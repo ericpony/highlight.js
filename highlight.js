@@ -1,10 +1,29 @@
 ﻿(function() {
+
+  var STYLE = {// CSS classes
+    keyword:  'keyword', 
+    type:     'type',
+    built_in: 'built-in',
+    nominal:  'built-in',
+    string:   'string',
+    comment:  'comment',  // single line
+    comments: 'comments', // block
+    character:'char',
+    hex_value:'hex',      
+    numeric:  'value',
+    macro:    'macro',
+    symbol:   'symbol'
+  };
+
   var LANG = {
     'Scala': {
       type_ctor: 'type object trait class extends',
       types: 'Int Char String Double Float Long Boolean Short Byte Any AnyRef Nothing Null Unit Iterator Map Set Seq Array List Vector Tuple[\\d]*',
       keywords: 'type yield lazy override def with val var false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
-      built_in: ''
+      others: [
+        ['type',    /\b[$_]*[A-Z][_$A-Z0-9]*[a-z][\w$]*\b/g, STYLE.type], // treat upper camel case identifiers as types.
+        ['literal', /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g,    STYLE.symbol]  // support symbol literal
+      ]
     },
     'JavaScript': {
       type_ctor: '',
@@ -16,30 +35,14 @@
       type_ctor: 'interface class extends implements',
       types: 'int float char boolean void long short double String null',
       keywords: 'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
-      built_in: ''
     },
     'C++': {
       type_ctor: '',
       types: 'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
       keywords: 'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
-      built_in: ''
     }
   };
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
-
-  var STYLE = {// CSS classes
-    keyword:  'keyword', 
-    type:     'type',
-    built_in:  'built-in',
-    nominal:  'built-in',
-    string:   'string',
-    comment:  'comment',  // single line
-    comments: 'comments', // block
-    character:'char',
-    hex_value:'hex',      
-    numeric:  'value',
-    macro:    'macro'
-  };
 
   var COMMON = [
     {r: /\/\*[\s\S]*?\*\//gm, css: STYLE.comments },
@@ -47,7 +50,7 @@
     {r: /^ *#.*/gm,           css: STYLE.macro },
     {r: /"([^"\\\n]|\\.)*"/g, css: STYLE.string },
     {r: /'([^'\\\n]|\\.)*'/g, css: STYLE.character },
-    {r: /[a-zA-Z_]+\d+/g,      css: '' }, // prevent the parser from breaking e.g., a1 to a and 1
+    {r: /[a-zA-Z_]+\d+/g,     css: '' }, // prevent the parser from breaking e.g., a1 to a and 1
     {r: /0[xX][\da-fA-F]+/g,  css: STYLE.hex_value },
     {r: /\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric }
   ];
@@ -73,7 +76,7 @@
 
   function string2regex (str) 
   {
-    return '\\b' + str.replace(/ /g, '\\b|\\b') + '\\b';
+    return str? '\\b(?:' + str.replace(/ /g, '|') + ')\\b' : '';
   }
   function tab2spaces(text)
   {
@@ -98,7 +101,11 @@
     syntax.keywords  = syntax.keywords ? { r: new RegExp(string2regex(syntax.keywords),'g'), css: STYLE.keyword } : {};
     syntax.types     = syntax.types ?    { r: new RegExp(string2regex(syntax.types),'g'),    css: STYLE.type } : {};
     syntax.built_in  = { r: syntax.built_in, css: STYLE.built_in };
-
+    if(syntax.others) {
+      for(var i=0; i<syntax.others.length; i++)
+        syntax[syntax.others[i][0]] = { r: syntax.others[i][1], css: syntax.others[i][2] };
+      delete syntax.others;
+    }
     var user_types = {}, built_in_regex = '';
     if(syntax.built_in.r) syntax.built_in.r.split(' ').forEach(function(b){ user_types[b] = true; built_in_regex += b });
     if(built_in_regex) syntax.built_in.r = new RegExp(string2regex(built_in_regex = string2regex(built_in_regex)),'g');
@@ -106,15 +113,17 @@
     syntax.type_ctor  = syntax.type_ctor ? {
         r:      new RegExp('(' + string2regex(syntax.type_ctor) + ') +([^\\n (<\[]+)', 'g'), 
         css:    STYLE.nominal, 
-        update: function(t) { 
+        update: function(t, i) { 
                   if(user_types[t]) return;
                   user_types[t] = true;
                   built_in_regex = !built_in_regex ? ('\\b'+t+'\\b') : (built_in_regex+'|\\b'+t+'\\b');
                   var r = new RegExp(built_in_regex, 'g');
-                  r.index = syntax.built_in.r.index;
-                  r.lastIndex = syntax.built_in.r.lastIndex;
+                  if(syntax.built_in.r) {
+                    r.index = syntax.built_in.r.index;
+                    r.lastIndex = syntax.built_in.r.lastIndex;
+                  }
                   syntax.built_in.r = r;
-                  cache.m[cache.m.length-2] = 0; // reset the last pos of searched text for built_in
+                  cache.m[i] = 0; // reset the last pos of searched text for built_in
                 }
     } : {};
     return syntax;
@@ -166,12 +175,12 @@
   {
     options = options || {};
     var text = tab2spaces(element.innerHTML);
-    var q = 0;
+    var q = 0, b;
     var token1, token2 = '';
     var regexps = (function (SYNTAX){
       var ret = [];
       for(var rule in COMMON) ret.push(COMMON[rule]);
-      for(var rule in SYNTAX) SYNTAX[rule] && ret.push(SYNTAX[rule]);
+      for(var rule in SYNTAX) SYNTAX[rule] && ret.push(SYNTAX[rule]) && rule=='built_in' && (b=ret.length-1);
       cache.m = ret.map(function(){ return 0 });
       return ret;
     })(createSyntaxRegex(lang));
@@ -209,7 +218,7 @@
       if(token1)
       {
         colorize(token1 + ' ', STYLE.keyword);
-        if(regexps[ii].update) regexps[ii].update(token2);
+        if(regexps[ii].update) regexps[ii].update(token2,b);
       }
       colorize(token2, regexps[ii].css);
       if(q == regexps[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
