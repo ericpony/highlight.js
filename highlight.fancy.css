@@ -94,6 +94,6 @@ div.xheader {
 .sh .macro {color: purple;}
 .sh .type {color: #069;}
 .sh .keyword {color: blue;}
-.sh .built-in {color: purple;}
+.sh .built-in {color: purple; cursor: pointer; }
 .sh .word {}
 .sh .value, .sh .hex {color: brown;}
