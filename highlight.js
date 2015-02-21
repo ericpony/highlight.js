@@ -16,7 +16,7 @@
   };
 
   var LANG = {
-    'Scala': {
+    'Scala': { // incomplete
       type_ctor: 'type object trait class extends',
       types: 'Int Char String Double Float Long Boolean Short Byte Any AnyRef Nothing Null Unit Iterator Map Set Seq Array List Vector Tuple[\\d]*',
       keywords: 'type yield lazy override def with val var false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
@@ -25,18 +25,18 @@
         ['literal', /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g,    STYLE.symbol]  // support symbol literal
       ]
     },
-    'JavaScript': {
-      type_ctor: '',
-      types: '',
-      keywords: 'in if for while finally var new function do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
-      built_in: 'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl arguments require'
+    'JavaScript': { // incomplete
+      type_ctor: 'new',
+      types: 'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
+      keywords: 'in if for while finally var let yield new function do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
+      built_in: 'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require'
     },
-    'Java': {
+    'Java': { // incomplete
       type_ctor: 'interface class extends implements',
       types: 'int float char boolean void long short double String null',
       keywords: 'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
     },
-    'C++': {
+    'C++': { // incomplete
       type_ctor: '',
       types: 'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
       keywords: 'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
