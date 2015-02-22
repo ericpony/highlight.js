@@ -88,12 +88,16 @@ div.xheader {
   xmargin-top: .07em;
   xmargin-bottom: .07em;
 }
-.sh .code { color: darkblue; white-space: nowrap;}
-.sh .comment, .sh .comments {color: #008200;}
-.sh .string, .sh .char {color: brown;}
-.sh .macro {color: purple;}
+.sh .code {color: darkblue; white-space: nowrap;}
+.sh .comment {color: #008200;} 
+.sh .comments {color: #008200;}
+.sh .string {color: brown;}
+.sh .char {color: brown;}
+.sh .macro {color: gray;}
 .sh .type {color: #069;}
 .sh .keyword {color: blue;}
 .sh .built-in {color: purple;}
-.sh .word {}
+.sh .nominal {color: purple; cursor: pointer;}
+.sh .symbol {color: #0A0;}
+.sh .constant {color: green;}
 .sh .value, .sh .hex {color: brown;}
