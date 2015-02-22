@@ -88,12 +88,12 @@ div.xheader {
   xmargin-top: .07em;
   xmargin-bottom: .07em;
 }
-.sh .code {color: darkblue;}
+.sh .code { color: darkblue; white-space: nowrap;}
 .sh .comment, .sh .comments {color: #008200;}
 .sh .string, .sh .char {color: brown;}
 .sh .macro {color: purple;}
 .sh .type {color: #069;}
 .sh .keyword {color: blue;}
-.sh .built-in {color: purple; cursor: pointer; }
+.sh .built-in {color: purple;}
 .sh .word {}
 .sh .value, .sh .hex {color: brown;}
