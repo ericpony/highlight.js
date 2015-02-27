@@ -19,21 +19,21 @@
   var LANG = {
     'Scala': { // incomplete
       type_ctor: /\b(type|object|trait|class)\s+([$\w]+)/g,
-      ref_ctor:  /\b(val|var|def)\s+([$\w]+)/g,
-      nominal:   '', // a workaround to prevent nominals from being preempted by type rule. Elaboration needed.
+      ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=(]*\(([^)]*)\)|(val|var|def)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
+      //nominal:   '', // a workaround to prevent nominals from being preempted by type rule. Elaboration needed.
       type:      /\b[$_]*[A-Z][$\w]*\b/g,
       keyword:  'type yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
       literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol } // symbol literal
     },
     'JavaScript': { // incomplete
       //type_ctor: /\b(function\*?(?=\s+[A-Z])|new)\s+([$\w]+)/g,
-      ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*\(([^)]*)\))/g,//|(function\*?)\s*\(([^)]*)\))/g,
+      ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*\(([^)]*)\)|()([\w$]+)(?=:))/g,//|(function\*?)\s*\(([^)]*)\))/g,
       type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
       keyword:   'in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
       built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require'
     },
     'Java': { // incomplete
-      type_ctor: 'interface class extends implements',
+      type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
       type:      'int float char boolean void long short double String null',
       keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
     },
@@ -47,45 +47,24 @@
 
   var COMMON = [
     {r: /\/\*[\s\S]*?\*\//gm, css: STYLE.comments },
-    {r: /\/\/.*$/gm,          css: STYLE.comment },
-    {r: /^ *#.*/gm,           css: STYLE.macro },
-    {r: /"[^"]*"/g, css: STYLE.string },
-    {r: /'[^']*'/g, css: STYLE.character },
-    {r: /[a-zA-Z_]+\d+/g,     css: '' }, // prevent the parser from breaking e.g., a1 to a and 1
-    {r: /0[xX][\da-fA-F]+/g,  css: STYLE.hex_value },
-    {r: /\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric }
+    {r: /\/\/.*$/gm,            css: STYLE.comment },
+    {r: /^ *#.*/gm,             css: STYLE.macro },
+    {r: /"[^"]*"/g,             css: STYLE.string },
+    {r: /'[^']*'/g,             css: STYLE.character },
+    {r: /0[xX][\da-fA-F]+/g,    css: STYLE.hex_value },
+    {r: /\b\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric },
+    {r: /[{}]/g,                css: '' }
   ];
 
   function change_style(classname, highlighted) {
-    var stylename = 'text-decoration', value = highlighted ?  'underline' : '';
     var elems = document.querySelectorAll('.' + classname);
-    for(var i=0; i<elems.length; i++) elems[i].style[stylename] = value;
+    for(var i=0; i<elems.length; i++) {
+      elems[i].style.fontWeight = highlighted ? 'bolder' : '';
+      elems[i].style.backgroundColor = highlighted ? 'yellow' : '';
+    }
   }
 
-  function createSyntaxRegex(lang, update_ref)
-  {
-    var syntax = LANG[lang];
-    if(!syntax) return null;
-    if(syntax.processed) return syntax;
-    function regex(str) {
-      if(!str) return '';
-      return '\\b(?:' + str.replace(/ /g, '|') + ')\\b';
-    }
-    function regexp(pattern) {
-      if(typeof pattern != 'string') return pattern;
-      return new RegExp(regex(pattern), 'g');
-    }
-    syntax.processed = true;
-    syntax.keyword   = syntax.keyword ?   { r: regexp(syntax.keyword), css: STYLE.keyword } : {};
-    syntax.type      = syntax.type ?      { r: regexp(syntax.type),    css: STYLE.type } : {};
-    syntax.built_in  = syntax.built_in ?  { r: regexp(syntax.built_in),css: STYLE.built_in } : {};
-    syntax.type_ctor = syntax.type_ctor ? { r: syntax.type_ctor, update: update_ref } : {};
-    syntax.ref_ctor  = syntax.ref_ctor ?  { r: syntax.ref_ctor,  update: update_ref } : {};
-    syntax.nominal   = { r: '', css: STYLE.nominal };
-    return syntax;
-  }
-
-  var cache = {};
+  var cache;
 
   function colorize(str, css, attr)
   {
@@ -112,6 +91,7 @@
               var anchor = document.createElement('A');
               anchor.name = attr.name;
               anchor.style.cursor = 'default';
+              anchor.style.textDecoration = 'none';
               anchor.appendChild(span);
               span = anchor;
             }
@@ -120,7 +100,6 @@
           cache.line.appendChild(span);
         }
       }
-
       if(i+1 < lines.length) {
         // FF need insert '&nbsp;' to make empty <li> displayed
         if(cache.line.innerHTML == '') cache.line.innerHTML = '&nbsp;';
@@ -132,6 +111,8 @@
 
   function createHighlightedCode(lang, element, options)
   {
+    function gen_id() { return Math.random().toString().substr(2,5) }
+    function gen_name(s,t) { return 'r' + s.id + '-' + t }
     function unescape(text) {
       return text
       .replace(/&amp;/g, '&')
@@ -159,44 +140,47 @@
       }
       return stext;
     }
-    function update(t,p,i) {
-      if(t) {
-//        var group_name = cache.id + '-' + t;
-        var group_name = t;
-        var attr = {
-          onmouseover:  function(e) { change_style(group_name, true) },
-          onmouseleave: function(e) { change_style(group_name, false) },
-        };
-        attr.className = STYLE.type + ' ' + group_name;
-        attr.name      = group_name;        
-        colorize(t, undefined, attr);
-        if(!nominals[t]) {
-          nominal_regex = !nominal_regex ? ('\\b'+t+'\\b') : (nominal_regex+'|\\b'+t+'\\b');
-          var syntax  = LANG[lang]; 
-          var r       = new RegExp(nominal_regex, 'g');
+    var scopes = (function(){
+      var stack = [];
+      return {
+        id:      gen_id(),
+        init:    function() { this.create(); return this },
+        destroy: function() { stack.pop(); this.update_regex(); },
+        current: function() { return stack[stack.length-1] },
+        create:  function(is_block) { 
+          if(is_block && !this.current().is_block)
+            this.current().is_block = true;
+          else
+            stack.push({ id:this.id+'-'+gen_id(), nominals:{}, nominal_regex:'', is_block:!stack.length }); 
+        },
+        lookup:  function(name) {
+          for(var i=stack.length-1; i>=0; i--)
+            if(stack[i].nominals[name]) return stack[i];
+        },
+        add_nominal: function(name) {
+          var scope = this.current();
+          if(scope.nominals[name]) return;
+          scope.nominal_regex = !scope.nominal_regex ? ('\\b' + name + '\\b') : (scope.nominal_regex + '|\\b' + name + '\\b');
+          scope.nominals[name] = true;
+          this.update_regex();
+        },
+        update_regex: function() {
+          var syntax  = LANG[lang];
+          var regexes = [];
+          for(var i=0; i<stack.length; i++) 
+            if(stack[i].nominal_regex)
+              regexes.push(stack[i].nominal_regex);
+          if(!regexes.length) return;
+          var r = new RegExp(regexes.join('|'), 'g');
           r.index     = syntax.nominal.r.index;
           r.lastIndex = syntax.nominal.r.lastIndex;
           syntax.nominal.r = r;
-          cache.m[i] = 0; // reset the last position of searched text for nominal rule
-          nominals[t] = true;
         }
-      }
-      if(p!==undefined) { 
-        colorize('(');
-        if(p) {
-          var rr, r = new RegExp(/([$\w]+)([^,]*,?)/g);
-          while ((rr = r.exec(p)) !== null) {
-            update(rr[1], undefined, i);
-            colorize(rr[2]);
-          }
-        }
-        colorize(')');
-      }
-    }
-
+      };
+    })();
     options = options || {};
-    cache.id = Math.random().toString().substr(2,5);
-    var nominals = {}, nominal_regex = '';
+    cache = {};
+    cache.scopes = scopes.init();
     var text = tab2spaces(element.innerHTML);
     var last_index = 0, nominal_index, attr;
     var token1, token2, token3;
@@ -206,7 +190,69 @@
       for(var rule in SYNTAX) SYNTAX[rule] && ret.push(SYNTAX[rule]) && rule=='nominal' && (nominal_index=ret.length-1);
       cache.m = ret.map(function(){ return 0 });
       return ret;
-    })(createSyntaxRegex(lang, update));
+    })((function () {
+      var syntax = LANG[lang];
+      if(!syntax) return null;
+      if(syntax.processed) return syntax;
+      function regex(str) {
+        if(!str) return '';
+        return '\\b(?:' + str.replace(/ /g, '|') + ')\\b';
+      }
+      function regexp(pattern) {
+        if(typeof pattern != 'string') return pattern;
+        return new RegExp(regex(pattern), 'g');
+      }
+      function create_nominal(nominal, parameters, index) {
+        if(nominal) {
+          var scope = cache.scopes.current();
+          var name = 'r' + scope.id + '-' + nominal;
+          var attr = {
+            onmouseover:  function(e) { change_style(name, true) },
+            onmouseleave: function(e) { change_style(name, false) },
+          };
+          attr.className = STYLE.type + ' ' + name;
+          attr.name      = name;
+          colorize(nominal, undefined, attr);
+          cache.scopes.add_nominal(nominal);
+          cache.m[index] = 0; // reset the last position of searched text for nominal rule
+        }
+        if(parameters !== undefined) { // output '()' when parameters is ''
+          colorize('(');
+          cache.scopes.create();
+          if(parameters) {
+            var rr, r = new RegExp(/([$\w]+)([^,]*,?\W*)/g);
+            var names = [];
+            while ((rr = r.exec(parameters)) !== null) {
+              create_nominal(rr[1], undefined, index);
+              names.push(rr[1]);
+              colorize(rr[2]);
+            }
+          }
+          colorize(')');
+        }
+      }
+      function create_ref(nominal, parameters, index) {
+        var scope = cache.scopes.lookup(nominal);
+        if(!scope) return create_nominal(nominal, parameters, index);
+        var name = gen_name(scope, nominal);
+        attr = {
+          className:    STYLE.nominal + ' ' + name,
+          onclick:      function(e) { location.href = '#' + name },
+          onmouseover:  function(e) { change_style(name, true) },
+          onmouseleave: function(e) { change_style(name, false) },
+        };
+        colorize(nominal, undefined, attr);
+      }
+
+      syntax.processed = true;
+      syntax.keyword   = syntax.keyword   ? { r: regexp(syntax.keyword), css: STYLE.keyword } : {};
+      syntax.type      = syntax.type      ? { r: regexp(syntax.type),    css: STYLE.type } : {};
+      syntax.built_in  = syntax.built_in  ? { r: regexp(syntax.built_in),css: STYLE.built_in } : {};
+      syntax.type_ctor = syntax.type_ctor ? { r: syntax.type_ctor, update: create_nominal } : {};
+      syntax.ref_ctor  = syntax.ref_ctor  ? { r: syntax.ref_ctor,  update: create_nominal } : {};
+      syntax.nominal   = { r: '', css: STYLE.nominal, update: create_ref };
+      return syntax;
+    })());
 
     cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
 
@@ -238,23 +284,17 @@
       colorize(text.slice(last_index, p));  // plain text in text[last_index...p]
       if(token1) {
         colorize(token1 + ' ', STYLE.keyword);
-        if(regexps[ii].update) 
-          regexps[ii].update(token2, token3, nominal_index);
-        else
-          colorize(token2, regexps[ii].css);
       }else {
-        if(regexps[ii].css == STYLE.nominal) { // experimental
-          attr = (function(name, css) {
-            return {
-              className: css + ' ' + name,
-              onmouseover:  function(e) { change_style(name, true) },
-              onmouseleave: function(e) { change_style(name, false) },
-              onclick: function(e) { location.href = '#' + name }
-            };
-          })(token2, regexps[ii].css);
-        }
-        colorize(token2, regexps[ii].css, attr);
+        if(token2 == '{') {
+          cache.scopes.create(true);
+        }else if(token2 == '}') 
+          cache.scopes.destroy(); 
       }
+      if(regexps[ii].update)
+        regexps[ii].update(token2, token3, nominal_index);
+      else
+        colorize(token2, regexps[ii].css);
+
       if(last_index == regexps[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
       last_index = regexps[ii].r.lastIndex;
       attr = undefined;
