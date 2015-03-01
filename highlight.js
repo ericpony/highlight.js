@@ -18,7 +18,7 @@
 
   var LANG = {
     'Scala': { // incomplete
-        syntax: {
+        regex: {
           type:      /\b[$_]*[A-Z][$\w]*\b/g,
           keyword:  'yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
           literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol }, // symbol literal
@@ -26,57 +26,65 @@
           ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
           //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
         },
-        param_list_rule: ''
+        param_list_regex: ''
     },
     'JavaScript': { // incomplete
-        syntax: {
+        regex: {
           type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
           keyword:   'in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
           type_ctor: /\b(new)\s+([$\w]+)/g,
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g
         },
-        param_list_rule: /([$\w]+)([^,]*,?\W*)/g,
+        param_list_regex: /([$\w]+)([^,]*,?\W*)/g,
     },
     'Java': { // untested
-        syntax: {
+        regex: {
           type:      'int float char boolean void long short double String null',
           keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
           type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g
         },
-        param_list_rule: ''
+        param_list_regex: ''
     },
     'C++': { // untested
-      syntax: {
+      regex: {
         type_ctor: '',
         type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
         keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
       },
-      param_list_rule: ''
+      param_list_regex: ''
     }
   };
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
 
   var COMMON = [
-    {r: /\/\*[\s\S]*?\*\//gm, css: STYLE.comments },
-    {r: /\/\/.*$/gm,            css: STYLE.comment },
-    {r: /^ *#.*/gm,             css: STYLE.macro },
-    {r: /"[^"]*"/g,             css: STYLE.string },
-    {r: /'[^']*'/g,             css: STYLE.character },
-    {r: /0[xX][\da-fA-F]+/g,    css: STYLE.hex_value },
-    {r: /\b\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric },
-    {r: /[{}]/g,                css: '' }
+    {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+    {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+    {r: /^ *#.*/gm,             css: STYLE.macro,     p:0 },
+    {r: /"[^"]*"/g,             css: STYLE.string,    p:0 },
+    {r: /'[^']*'/g,             css: STYLE.character, p:0 },
+    {r: /0[xX][\da-fA-F]+/g,    css: STYLE.hex_value, p:0 },
+    {r: /\b\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric,   p:0 },
+    {r: /[{}]/g,                css: '',              p:0 }
   ];
 
-  function change_style(classname, highlighted) {
-    var elems = document.querySelectorAll('.' + classname);
-    for(var i=0; i<elems.length; i++) {
-      elems[i].style.fontWeight = highlighted ? 'bolder' : '';
-      elems[i].style.backgroundColor = highlighted ? 'yellow' : '';
+  var create_link = (function() {
+    function lighten(name, on) {
+      var elems = document.querySelectorAll('.' + name);
+      for(var i=0; i<elems.length; i++) {
+        elems[i].style.fontWeight = on ? 'bolder' : '';
+        elems[i].style.backgroundColor = on ? 'yellow' : '';
+      }
     }
-  }
+    return function(name) {
+      return {
+        onmouseover:  function(e) { lighten(name, true)  },
+        onmouseleave: function(e) { lighten(name, false) }
+      }
+    }
+  })();
 
-  var cache;
+  var cache = {}, persist = {};
 
   function colorize(str, css, attr)
   {
@@ -121,10 +129,10 @@
     }
   }
 
-  function createSyntaxRules(lang) {
-    var syntax = LANG[lang].syntax;
-    if(!syntax) return null;
-    if(syntax.processed) return syntax;
+  function create_syntax(lang) {
+    var syntax = LANG[lang].regex;
+    if(!syntax || LANG[lang].processed) return syntax;
+
     function regex(str) {
       if(!str) return '';
       return '\\b(?:' + str.replace(/ /g, '|') + ')\\b';
@@ -135,16 +143,13 @@
     }
     function create_nominal(nominals) {
       if(nominals[0]) {
-        var scope = cache.scopes.current();
+        var scope = scopes.current();
         var name = 'r' + scope.id + '-' + nominals[0];
-        var attr = {
-          onmouseover:  function(e) { change_style(name, true) },
-          onmouseleave: function(e) { change_style(name, false) },
-        };
-        attr.className = LANG[lang].syntax.type_ctor.css + ' ' + name;
+        var attr = create_link(name);
+        attr.className = cache.syntax.type_ctor.css + ' ' + name;
         attr.name      = name;
         colorize(nominals[0], undefined, attr);
-        cache.scopes.add_nominal(nominals[0]);
+        scopes.add_nominal(nominals[0]);
       }
       for(var i=1; i<nominals.length; i++) {
         if(!nominals[i]) continue;
@@ -154,10 +159,10 @@
         }
         var param_list = nominals[i].slice(1, -1);
         colorize('(');
-        cache.scopes.create(true);
+        scopes.create(true);
         if(param_list) { // is nonempty
-          var param_rule = LANG[lang].param_list_rule;
-          if(!param_rule) 
+          var param_rule = cache.param_list_rule;
+          if(!param_rule)
             parse(param_list);
           else {
             var rr, r = new RegExp(param_rule);
@@ -172,12 +177,12 @@
       }
       return true;
     }
-    syntax.processed = true;
-    syntax.keyword   = syntax.keyword   ? { r: regexp(syntax.keyword),  css: STYLE.keyword,  p:0 } : {};
-    syntax.type      = syntax.type      ? { r: regexp(syntax.type),     css: STYLE.type,     p:1 } : {};
-    syntax.built_in  = syntax.built_in  ? { r: regexp(syntax.built_in), css: STYLE.built_in, p:0 } : {};
-    syntax.type_ctor = syntax.type_ctor ? { r: syntax.type_ctor,        css: STYLE.type,     p:3, update: create_nominal } : {};
-    syntax.ref_ctor  = syntax.ref_ctor  ? { r: syntax.ref_ctor,         css: STYLE.nominal,  p:3, update: create_nominal } : {};
+    LANG[lang].processed = true;
+    if(syntax.keyword)   syntax.keyword   = { r: regexp(syntax.keyword),  css: STYLE.keyword,  p:0 };
+    if(syntax.type)      syntax.type      = { r: regexp(syntax.type),     css: STYLE.type,     p:1 };
+    if(syntax.built_in)  syntax.built_in  = { r: regexp(syntax.built_in), css: STYLE.built_in, p:0 };
+    if(syntax.type_ctor) syntax.type_ctor = { r: syntax.type_ctor,        css: STYLE.type,     p:3, update: create_nominal };
+    if(syntax.ref_ctor)  syntax.ref_ctor  = { r: syntax.ref_ctor,         css: STYLE.nominal,  p:3, update: create_nominal };
     return syntax;
   }
   var scopes = (function(){
@@ -186,8 +191,8 @@
     function gen_id() { return Math.random().toString().substr(2,4) }
     return {
       id:      gen_id(),
-      init:    function(lang) { _lang = lang; _stack = []; this.create(); return this },
-      destroy: function() { _stack.pop(); this.update_regex(); if(!this.current()){debugger} },
+      reset:   function(lang) { _lang = lang; _stack = []; this.create(); return this },
+      destroy: function() { _stack.pop(); this.update_nominals(); if(!this.current()){debugger} },
       current: function() { return _stack[_stack.length-1] },
       create:  function(is_half_opened) {
         var scope = this.current();
@@ -205,86 +210,70 @@
         if(scope.nominals[name]) return;
         scope.nominal_regex = !scope.nominal_regex ? ('\\b' + name + '\\b') : (scope.nominal_regex + '|\\b' + name + '\\b');
         scope.nominals[name] = true;
-        this.update_regex();
+        this.update_nominals();
       },
-      update_regex: function() {
-        var syntax  = LANG[lang].syntax;
+      update_nominals: function() {
         var regexes = [];
         for(var i=0; i<_stack.length; i++)
           if(_stack[i].nominal_regex)
             regexes.push(_stack[i].nominal_regex);
         if(!regexes.length) return;
         var r = new RegExp(regexes.join('|'), 'g');
-        r.index     = cache.nominal.r.index;
-        r.lastIndex = cache.nominal.r.lastIndex;
-        cache.nominal.r = r;
+        r.index     = persist.nominal.r.index;
+        r.lastIndex = persist.nominal.r.lastIndex;
+        persist.nominal.r = r;
       },
       state: function() { return _stack }
     };
   })();
   function parse(text) {
     var last_index = 0, attr;
-    var lexers = (function (SYNTAX) {
-      var ret = [];
-      for(var rule in COMMON) ret.push(COMMON[rule]);
-      for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
-//      for(var rule in SYNTAX) SYNTAX[rule] && ret.push({r:SYNTAX[rule].r,css:SYNTAX[rule].css,update:SYNTAX[rule].update});
-//      for(var rule in SYNTAX) SYNTAX[rule] && ret.push(SYNTAX[rule]);
-      for(var i=0; i<ret.length; i++) {
-        var rule = ret[i];
-        if(!rule.r) continue;
-        ret[i] = {
-          r:      rule.r ? new RegExp(rule.r) : '',
-          p:      rule.p || 0,
-          css:    rule.css,
-          update: rule.update
-        };
-      }
-      ret.push(cache.nominal);
-      return ret;
-    })(cache.syntax);
-    var pos = lexers.map(function(){ return 0 });
+    var lexers = cache.lexers;
+    var matchs = lexers.map(function(){ return 0 });
+    var states = lexers.map(function(lexer){ return lexer.r.lastIndex });
     var tokens = [];
-    //var nominal_last_index = cache.nominal.r.lastIndex;
-    lexers[-1] = { p:-1 }; // hack
 
     while(true) {
-      var ii = -1;
-      var p0 = p = text.length;
+      var ii  = -1;
+      var pos = text.length;
       for(var i = 0; i < lexers.length; i++) {
-        if(pos[i] == null) continue;
+        if(matchs[i] == null) continue;
         if(!lexers[i].r) continue;
-        if(!pos[i] || pos[i].index < last_index) {
+        if(!matchs[i] || matchs[i].index < last_index) {
           lexers[i].r.lastIndex = last_index;
-          pos[i] = lexers[i].r.exec(text);
-          if(pos[i] == null) continue;
-          tokens[i] = [undefined, pos[i][0]];
-          if(pos[i].length>=2) {
-            for(var j=1, k=0; j<pos[i].length; j++) {
-              while(pos[i][j]===undefined && ++j<pos[i].length);
-              tokens[i][k++] = pos[i][j];
+          matchs[i] = lexers[i].r.exec(text);
+          if(matchs[i] == null) continue;
+          tokens[i] = [undefined, matchs[i][0]];
+          if(matchs[i].length>=2) {
+            for(var j=1, k=0; j<matchs[i].length; j++) {
+              while(matchs[i][j]===undefined && ++j<matchs[i].length);
+              tokens[i][k++] = matchs[i][j];
             }
           }
         }
-        if(pos[i].index<p || (pos[i].index==p && lexers[ii].p<lexers[i].p)) { p = pos[i].index; ii = i; }
-      }
+        if(matchs[i].index<pos || (matchs[i].index==pos && lexers[ii].p<lexers[i].p)) { 
+          pos = matchs[i].index; 
+          ii = i; 
+        }
+      }// end of for
 
       if(ii == -1) { colorize(text.slice(last_index)); break; } // no highlight needed anymore
 
-      colorize(text.slice(last_index, p));  // generate plaintext for text[last_index...p-1]
+      colorize(text.slice(last_index, pos));  // generate plaintext for text[last_index...pos-1]
+
       if(tokens[ii][0]) {
         colorize(tokens[ii][0] + ' ', STYLE.keyword);
       }else {
         if(tokens[ii][1] == '{') {
-          cache.scopes.create();
+          scopes.create();
         }else if(tokens[ii][1] == '}') {
-          cache.scopes.destroy();
-          pos[pos.length-1] = 0;  // reset the last position of searched text for nominal rule
+          scopes.destroy();
+          matchs[matchs.length-1] = 0;  // reset searched test for nominal rule
         }
       }
       if(lexers[ii].update) {
         if(lexers[ii].update(tokens[ii].slice(1)))
-          pos[pos.length-1] = 0;  // reset the last position of searched text for nominal rule
+          matchs[matchs.length-1] = 0;  // reset searched test for nominal rule
       }else
         colorize(tokens[ii][1], lexers[ii].css);
 
@@ -292,32 +281,17 @@
       last_index = lexers[ii].r.lastIndex;
       attr = undefined;
     }// end of while
-    //cache.nominal.r.lastIndex = nominal_last_index;
+    states.forEach(function(s,i){ lexers[i].r.lastIndex = s });
   }
 
-  function createHighlightedCode(lang, element, options)
+  function create_highlighted_code(element, attr, options)
   {
-    function create_ref(nominals) {
-      var scope = cache.scopes.lookup(nominals[0]);
-      //if(!scope) return create_nominal(nominals);
-      if(!scope) { colorize(nominals[0]); return false }
-      var name = 'r' + scope.id + '-' + nominals[0];
-      attr = {
-        className:    LANG[lang].syntax.ref_ctor.css + ' ' + name,
-        onclick:      function(e) { location.href = '#' + name },
-        onmouseover:  function(e) { change_style(name, true) },
-        onmouseleave: function(e) { change_style(name, false) },
-      };
-      colorize(nominals[0], undefined, attr);
-      return false;
-    }
     options = options || {};
     //cache = cache || {};
-    cache = {};
-    cache.scopes = scopes.init();
-    cache.syntax = createSyntaxRules(lang);
-    cache.nominal   = { r:'', css:STYLE.nominal, p:2, update:create_ref };
-    cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
+    for(var a in attr) cache[a] = attr[a];
+    persist.nominal.r = '';
+    cache.codeArea    = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
+    scopes.reset();
     //var text = element.textContent
                //.replace(/&lt;/g,   '<')
                //.replace(/&gt;/g,   '>')
@@ -336,15 +310,41 @@
       cache.codeArea.appendChild(cache.line.parentNode);
     div.appendChild(cache.codeArea);
     element.parentNode.replaceChild(div, element);
-
   }
 
+  persist.nominal = { 
+    css:    STYLE.nominal, 
+    update: function(nominals) {
+      var scope = scopes.lookup(nominals[0]);
+      //if(!scope) return create_nominal(nominals);
+      if(!scope) { colorize(nominals[0]); return false }
+      var name = 'r' + scope.id + '-' + nominals[0];
+      attr = create_link(name);
+      attr.className = cache.syntax.ref_ctor.css + ' ' + name,
+      attr.onclick   = function(e) { location.href = '#' + name };
+      colorize(nominals[0], undefined, attr);
+      return false;
+    },
+    p: 2
+  };
+
   for(var lang in LANG) {
+    persist[lang] = {};
+    persist[lang].syntax = create_syntax(lang);
+    persist[lang].lexers = (function(SYNTAX) {
+      var ret = [];
+      for(var rule in COMMON) ret.push(COMMON[rule]);
+      for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
+      ret[-1] = { p: -1 }; // just a hack
+      ret.push(persist.nominal);
+      return ret;
+    })(persist[lang].syntax);
+
     var snippets = document.getElementsByClassName(lang);
     while(snippets.length) {
       var code = snippets[0];
       var options  = {lineno: 1||code.attributes['lineno'] };
-      createHighlightedCode(lang, code, options);
+      create_highlighted_code(code, persist[lang], options);
     }
   }
 })();
