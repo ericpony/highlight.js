@@ -68,6 +68,8 @@
     {r: /[{}]/g,                css: '',              p:0 }
   ];
 
+  var cache = {}, persist = {};
+
   var create_link = (function() {
     function lighten(name, on) {
       var elems = document.querySelectorAll('.' + name);
@@ -84,62 +86,10 @@
     }
   })();
 
-  var cache = {}, persist = {};
-
-  function colorize(str, css, attr)
-  {
-    if(!str) return;
-    //var lines = escape(str).split('\n');
-    var lines = str.split('\n');
-    for(var i = 0; i < lines.length; i++) {
-      if(!cache.line) {
-        var li = document.createElement('LI');
-        var line = document.createElement('SPAN');
-        line.className = 'code';
-        li.appendChild(line);
-        cache.line = line;
-      }
-      if(lines[i] != '') {
-        if(!css && !attr)
-          cache.line.appendChild(document.createTextNode(lines[i].replace(/ /g,'\u00a0')));
-        else {
-          var span = document.createElement('SPAN');
-          span.className = css;
-          span.textContent = lines[i];
-          if(attr) {
-            if(attr.name) {
-              var anchor = document.createElement('A');
-              anchor.name = attr.name;
-              anchor.style.cursor = 'default';
-              anchor.style.textDecoration = 'none';
-              anchor.appendChild(span);
-              span = anchor;
-            }
-            for(var a in attr) span[a] = attr[a];
-          }
-          cache.line.appendChild(span);
-        }
-      }
-      if(i+1 < lines.length) {
-        // FF need insert '&nbsp;' to make empty <li> displayed
-        if(cache.line.innerHTML == '') cache.line.innerHTML = '&nbsp;';
-        cache.codeArea.appendChild(cache.line.parentNode);
-        cache.line = null;
-      }
-    }
-  }
-
-  function create_syntax(lang) {
-    var syntax = LANG[lang].regex;
-    if(!syntax || LANG[lang].processed) return syntax;
-
-    function regex(str) {
-      if(!str) return '';
-      return '\\b(?:' + str.replace(/ /g, '|') + ')\\b';
-    }
+ var create_syntax = (function() {
     function regexp(pattern) {
-      if(typeof pattern != 'string') return pattern;
-      return new RegExp(regex(pattern), 'g');
+      if(!pattern || typeof pattern != 'string') return pattern;
+      return new RegExp(regex('\\b(?:' + pattern.replace(/ /g, '|') + ')\\b'), 'g');
     }
     function create_nominal(nominals) {
       if(nominals[0]) {
@@ -177,15 +127,18 @@
       }
       return true;
     }
-    LANG[lang].processed = true;
-    if(syntax.keyword)   syntax.keyword   = { r: regexp(syntax.keyword),  css: STYLE.keyword,  p:0 };
-    if(syntax.type)      syntax.type      = { r: regexp(syntax.type),     css: STYLE.type,     p:1 };
-    if(syntax.built_in)  syntax.built_in  = { r: regexp(syntax.built_in), css: STYLE.built_in, p:0 };
-    if(syntax.type_ctor) syntax.type_ctor = { r: syntax.type_ctor,        css: STYLE.type,     p:3, update: create_nominal };
-    if(syntax.ref_ctor)  syntax.ref_ctor  = { r: syntax.ref_ctor,         css: STYLE.nominal,  p:3, update: create_nominal };
-    return syntax;
-  }
-  var scopes = (function(){
+    return function(lang) {
+      var syntax = LANG[lang].regex;
+      if(syntax.keyword)   syntax.keyword   = { r: regexp(syntax.keyword),  css: STYLE.keyword,  p: 0 };
+      if(syntax.type)      syntax.type      = { r: regexp(syntax.type),     css: STYLE.type,     p: 1 };
+      if(syntax.built_in)  syntax.built_in  = { r: regexp(syntax.built_in), css: STYLE.built_in, p: 0 };
+      if(syntax.type_ctor) syntax.type_ctor = { r: syntax.type_ctor,        css: STYLE.type,     p: 3, update: create_nominal };
+      if(syntax.ref_ctor)  syntax.ref_ctor  = { r: syntax.ref_ctor,         css: STYLE.nominal,  p: 3, update: create_nominal };
+      return syntax;
+    }
+  })();
+
+  var scopes = (function() {
     var _stack = [];
     var _lang;
     function gen_id() { return Math.random().toString().substr(2,4) }
@@ -226,6 +179,49 @@
       state: function() { return _stack }
     };
   })();
+
+  function colorize(str, css, attr) {
+    if(!str) return;
+    //var lines = escape(str).split('\n');
+    var lines = str.split('\n');
+    for(var i = 0; i < lines.length; i++) {
+      if(!cache.line) {
+        var li = document.createElement('LI');
+        var line = document.createElement('SPAN');
+        line.className = 'code';
+        li.appendChild(line);
+        cache.line = line;
+      }
+      if(lines[i] != '') {
+        if(!css && !attr)
+          cache.line.appendChild(document.createTextNode(lines[i].replace(/ /g,'\u00a0')));
+        else {
+          var span = document.createElement('SPAN');
+          span.className = css;
+          span.textContent = lines[i];
+          if(attr) {
+            if(attr.name) {
+              var anchor = document.createElement('A');
+              anchor.name = attr.name;
+              anchor.style.cursor = 'default';
+              anchor.style.textDecoration = 'none';
+              anchor.appendChild(span);
+              span = anchor;
+            }
+            for(var a in attr) span[a] = attr[a];
+          }
+          cache.line.appendChild(span);
+        }
+      }
+      if(i+1 < lines.length) {
+        // FF need insert '&nbsp;' to make empty <li> displayed
+        if(cache.line.innerHTML == '') cache.line.innerHTML = '&nbsp;';
+        cache.codeArea.appendChild(cache.line.parentNode);
+        cache.line = null;
+      }
+    } // end of for
+  }
+
   function parse(text) {
     var last_index = 0, attr;
     var lexers = cache.lexers;
@@ -251,9 +247,9 @@
             }
           }
         }
-        if(matchs[i].index<pos || (matchs[i].index==pos && lexers[ii].p<lexers[i].p)) { 
-          pos = matchs[i].index; 
-          ii = i; 
+        if(matchs[i].index<pos || (matchs[i].index==pos && lexers[ii].p<lexers[i].p)) {
+          pos = matchs[i].index;
+          ii = i;
         }
       }// end of for
 
@@ -284,8 +280,7 @@
     states.forEach(function(s,i){ lexers[i].r.lastIndex = s });
   }
 
-  function create_highlighted_code(element, attr, options)
-  {
+  function create_highlighted_code(element, attr, options) {
     options = options || {};
     //cache = cache || {};
     for(var a in attr) cache[a] = attr[a];
@@ -312,8 +307,8 @@
     element.parentNode.replaceChild(div, element);
   }
 
-  persist.nominal = { 
-    css:    STYLE.nominal, 
+  persist.nominal = {
+    css:    STYLE.nominal,
     update: function(nominals) {
       var scope = scopes.lookup(nominals[0]);
       //if(!scope) return create_nominal(nominals);
@@ -321,7 +316,16 @@
       var name = 'r' + scope.id + '-' + nominals[0];
       attr = create_link(name);
       attr.className = cache.syntax.ref_ctor.css + ' ' + name,
-      attr.onclick   = function(e) { location.href = '#' + name };
+      attr.onclick   = function(e) {
+        location.href = '#' + name;
+        var node = document.querySelector('[name=' + name + ']').parentNode.parentNode;
+        node.style.transition = '';
+        node.style.backgroundColor = '#FF0';
+        setTimeout(function() { 
+          node.style.transition = 'background .5s ease-in-out';
+          node.style.backgroundColor = '';
+        }, 10);
+      };
       colorize(nominals[0], undefined, attr);
       return false;
     },
@@ -341,6 +345,7 @@
     })(persist[lang].syntax);
 
     var snippets = document.getElementsByClassName(lang);
+
     while(snippets.length) {
       var code = snippets[0];
       var options  = {lineno: 1||code.attributes['lineno'] };
