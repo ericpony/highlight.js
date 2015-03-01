@@ -17,25 +17,36 @@
   };
 
   var LANG = {
-    'Scala': { // incomplete
-      type_ctor: /\b(type|object|trait|class)\s+([$\w]+)/g,
-      ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=(]*\(([^)]*)\)|(val|var|def)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
-      //nominal:   '', // a workaround to prevent nominals from being preempted by type rule. Elaboration needed.
-      type:      /\b[$_]*[A-Z][$\w]*\b/g,
-      keyword:  'type yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
-      literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol } // symbol literal
+    'Scala': {
+        rules: { // incomplete
+          //nominal:   '', // a workaround to prevent nominals from being preempted by type rule. Elaboration needed.
+          type:      /\b[$_]*[A-Z][$\w]*\b/g,
+          keyword:  'type yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
+          literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol }, // symbol literal
+          type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=({]*)(\([^)]*\))|(object|trait|class)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
+          ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=(]*(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
+          //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
+        },
+        parameters: ''
     },
-    'JavaScript': { // incomplete
-      //type_ctor: /\b(function\*?(?=\s+[A-Z])|new)\s+([$\w]+)/g,
-      ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*\(([^)]*)\)|()([\w$]+)(?=:))/g,//|(function\*?)\s*\(([^)]*)\))/g,
-      type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
-      keyword:   'in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
-      built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require'
+    'JavaScript': {
+        rules: { // incomplete
+          type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
+          keyword:   'in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
+          built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
+          type_ctor: /\b(new)\s+([$\w]+)/g,
+//          type_ctor: /\b(function\*?(?=\s+[A-Z])|new)\s+([$\w]+)/g,
+          ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,//|(function\*?)\s*\(([^)]*)\))/g,
+        },
+        parameters: /([$\w]+)([^,]*,?\W*)/g,
     },
-    'Java': { // incomplete
-      type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
-      type:      'int float char boolean void long short double String null',
-      keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
+    'Java': {
+        rules: { // incomplete
+          type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
+          type:      'int float char boolean void long short double String null',
+          keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
+        },
+        parameters: ''
     },
     'C++': { // incomplete
       type_ctor: '',
@@ -110,7 +121,7 @@
   }
 
   function createSyntaxRules(lang) {
-    var syntax = LANG[lang];
+    var syntax = LANG[lang].rules;
     if(!syntax) return null;
     if(syntax.processed) return syntax;
     function regex(str) {
@@ -121,55 +132,52 @@
       if(typeof pattern != 'string') return pattern;
       return new RegExp(regex(pattern), 'g');
     }
-    function create_nominal(nominal, parameters, index) {
-      if(nominal) {
+    function create_nominal(nominals) {
+      if(nominals[0]) {
         var scope = cache.scopes.current();
-        var name = 'r' + scope.id + '-' + nominal;
+        var name = 'r' + scope.id + '-' + nominals[0];
         var attr = {
           onmouseover:  function(e) { change_style(name, true) },
           onmouseleave: function(e) { change_style(name, false) },
         };
-        attr.className = STYLE.type + ' ' + name;
+        attr.className = LANG[lang].rules.type_ctor.css + ' ' + name;
         attr.name      = name;
-        colorize(nominal, undefined, attr);
-        cache.scopes.add_nominal(nominal);
+        colorize(nominals[0], undefined, attr);
+        cache.scopes.add_nominal(nominals[0]);
       }
-      if(parameters !== undefined) { // output '()' when parameters is ''
+      for(var i=1; i<nominals.length; i++) {
+        if(nominals[i] === undefined) continue;
+        if(nominals[i][0]!='(' || nominals[i][nominals[i].length-1]!=')') {
+          colorize(nominals[i]);
+          continue;
+        }
+        nominals[i] = nominals[i].substr(1, nominals[i].length-2);
         colorize('(');
         cache.scopes.create();
-        if(parameters) {
-          var rr, r = new RegExp(/([$\w]+)([^,]*,?\W*)/g);
-          var names = [];
-          while ((rr = r.exec(parameters)) !== null) {
-            create_nominal(rr[1], undefined, index);
-            names.push(rr[1]);
-            colorize(rr[2]);
-          }
+        if(nominals[i]) { // is nonempty
+          var para_rule = LANG[lang].parameters;
+          if(para_rule) {
+            var rr, r = new RegExp(para_rule);
+            var names = [];
+            while ((rr = r.exec(nominals[i])) !== null) {
+              create_nominal([rr[1]]);
+              names.push(rr[1]);
+              //colorize(rr[2]);
+              parse(rr[2]);
+            }
+          }else
+             parse(nominals[i]);
         }
         colorize(')');
       }
       return true;
     }
-    function create_ref(nominal, parameters, index) {
-      var scope = cache.scopes.lookup(nominal);
-      if(!scope) return create_nominal(nominal, parameters, index);
-      var name = 'r' + scope.id + '-' + nominal;
-      attr = {
-        className:    STYLE.nominal + ' ' + name,
-        onclick:      function(e) { location.href = '#' + name },
-        onmouseover:  function(e) { change_style(name, true) },
-        onmouseleave: function(e) { change_style(name, false) },
-      };
-      colorize(nominal, undefined, attr);
-      return false;
-    }
     syntax.processed = true;
-    syntax.keyword   = syntax.keyword   ? { r: regexp(syntax.keyword),  css: STYLE.keyword     } : {};
-    syntax.type      = syntax.type      ? { r: regexp(syntax.type),     css: STYLE.type        } : {};
-    syntax.built_in  = syntax.built_in  ? { r: regexp(syntax.built_in), css: STYLE.built_in    } : {};
-    syntax.type_ctor = syntax.type_ctor ? { r: syntax.type_ctor,        update: create_nominal } : {};
-    syntax.ref_ctor  = syntax.ref_ctor  ? { r: syntax.ref_ctor,         update: create_nominal } : {};
-    syntax.nominal   = { r: '', css: STYLE.nominal, update: create_ref };
+    syntax.keyword   = syntax.keyword   ? { r: regexp(syntax.keyword),  css: STYLE.keyword,  p:0 } : {};
+    syntax.type      = syntax.type      ? { r: regexp(syntax.type),     css: STYLE.type,     p:1 } : {};
+    syntax.built_in  = syntax.built_in  ? { r: regexp(syntax.built_in), css: STYLE.built_in, p:0 } : {};
+    syntax.type_ctor = syntax.type_ctor ? { r: syntax.type_ctor,        css: STYLE.type,     p:3, update: create_nominal } : {};
+    syntax.ref_ctor  = syntax.ref_ctor  ? { r: syntax.ref_ctor,         css: STYLE.nominal,  p:3, update: create_nominal } : {};
     return syntax;
   }
   var scopes = (function(){
@@ -181,11 +189,11 @@
       init:    function(lang) { _lang = lang; _stack = []; this.create(); return this },
       destroy: function() { _stack.pop(); this.update_regex(); },
       current: function() { return _stack[_stack.length-1] },
-      create:  function(is_block) { 
+      create:  function(is_block) {
         if(is_block && !this.current().is_block)
           this.current().is_block = true;
         else
-          _stack.push({ id: this.id + '-' + gen_id(), is_block: !_stack.length, nominals:{}, nominal_regex:'' }); 
+          _stack.push({ id: this.id + '-' + gen_id(), is_block: !_stack.length, nominals:{}, nominal_regex:'' });
       },
       lookup:  function(name) {
         for(var i=_stack.length-1; i>=0; i--)
@@ -199,26 +207,46 @@
         this.update_regex();
       },
       update_regex: function() {
-        var syntax  = LANG[lang];
+        var syntax  = LANG[lang].rules;
         var regexes = [];
-        for(var i=0; i<_stack.length; i++) 
+        for(var i=0; i<_stack.length; i++)
           if(_stack[i].nominal_regex)
             regexes.push(_stack[i].nominal_regex);
         if(!regexes.length) return;
         var r = new RegExp(regexes.join('|'), 'g');
-        r.index     = syntax.nominal.r.index;
-        r.lastIndex = syntax.nominal.r.lastIndex;
-        syntax.nominal.r = r;
-      }
+        r.index     = cache.nominal.r.index;
+        r.lastIndex = cache.nominal.r.lastIndex;
+        cache.nominal.r = r;
+      },
+      state: function() { return _stack; }
     };
   })();
   function parse(text) {
     var last_index = 0, attr;
-    var token1, token2, token3;
-    var lexers = cache.regexps[0];
-    var nominal_index = cache.regexps[1];
+    var lexers = (function (SYNTAX) {
+      var ret = [];
+      for(var rule in COMMON) ret.push(COMMON[rule]);
+      for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
+//      for(var rule in SYNTAX) SYNTAX[rule] && ret.push({r:SYNTAX[rule].r,css:SYNTAX[rule].css,update:SYNTAX[rule].update});
+//      for(var rule in SYNTAX) SYNTAX[rule] && ret.push(SYNTAX[rule]);
+      for(var i=0; i<ret.length; i++) {
+        var rule = ret[i];
+        if(!rule.r) continue;
+        ret[i] = {
+          r:      rule.r ? new RegExp(rule.r) : '',
+          p:      rule.p || 0,
+          css:    rule.css,
+          update: rule.update
+        };
+      }
+      ret.push(cache.nominal);
+      return ret;
+    })(cache.rules);
     var pos = lexers.map(function(){ return 0 });
-    text = text
+    var tokens = [];
+    //var nominal_last_index = cache.nominal.r.lastIndex;
+    lexers[-1] = { p:-1 }; // hack
+
     while(true) {
       var ii = -1;
       var p0 = p = text.length;
@@ -228,54 +256,67 @@
         if(pos[i] == 0 || pos[i].index < last_index) {
           lexers[i].r.lastIndex = last_index;
           pos[i] = lexers[i].r.exec(text);
+          if(pos[i] == null) continue;
+          tokens[i] = [undefined, pos[i][0]];
+          if(pos[i].length>=2) {
+            for(var j=1, k=0; j<pos[i].length; j++) {
+              while(pos[i][j]===undefined && ++j<pos[i].length);
+              tokens[i][k++] = pos[i][j];
+            }
+          }
         }
-        if(pos[i] == null) continue;
-        var t1 = undefined, t2 = pos[i][0], t3 = undefined, pp = pos[i].index;
-        if(pos[i].length>=2) {
-          //pp += pos[i][1].length;
-          var j = 1; // Ugly but fast. Refactor needed.
-          while(pos[i][j]===undefined && ++j<pos[i].length); t1 = pos[i][j++];
-          while(pos[i][j]===undefined && ++j<pos[i].length); t2 = pos[i][j++];
-          while(pos[i][j]===undefined && ++j<pos[i].length); t3 = pos[i][j++];
-        }
-        if(pos[i].index < p) { p = pos[i].index; ii = i; token1 = t1; token2 = t2; token3 = t3; }
+        if(pos[i].index<p || (pos[i].index==p && lexers[ii].p<lexers[i].p)) { p = pos[i].index; ii = i; }
       }
 
       if(ii == -1){ colorize(text.slice(last_index)); break;} // no highlight needed anymore
 
       colorize(text.slice(last_index, p));  // plain text in text[last_index...p]
-      if(token1) {
-        colorize(token1 + ' ', STYLE.keyword);
+      if(tokens[ii][0]) {
+        colorize(tokens[ii][0] + ' ', STYLE.keyword);
       }else {
-        if(token2 == '{') {
+        if(tokens[ii][1] == '{') {
           cache.scopes.create(true);
-        }else if(token2 == '}') 
-          cache.scopes.destroy(); 
+        }else if(tokens[ii][1] == '}') {
+          cache.scopes.destroy();
+          pos[pos.length-1] = 0;  // reset the last position of searched text for nominal rule
+          if(!cache.scopes.current()) debugger;
+        }
       }
       if(lexers[ii].update) {
-        if(lexers[ii].update(token2, token3))
-          pos[nominal_index] = 0;  // reset the last position of searched text for nominal rule
+        if(lexers[ii].update(tokens[ii].slice(1)))
+          pos[pos.length-1] = 0;  // reset the last position of searched text for nominal rule
       }else
-        colorize(token2, lexers[ii].css);
+        colorize(tokens[ii][1], lexers[ii].css);
 
       if(last_index == lexers[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
       last_index = lexers[ii].r.lastIndex;
       attr = undefined;
     }// end of while
+    //cache.nominal.r.lastIndex = nominal_last_index;
   }
 
   function createHighlightedCode(lang, element, options)
   {
+    function create_ref(nominals) {
+      var scope = cache.scopes.lookup(nominals[0]);
+      //if(!scope) return create_nominal(nominals);
+      if(!scope) { colorize(nominals[0]); return false }
+      var name = 'r' + scope.id + '-' + nominals[0];
+      attr = {
+        className:    LANG[lang].rules.ref_ctor.css + ' ' + name,
+        onclick:      function(e) { location.href = '#' + name },
+        onmouseover:  function(e) { change_style(name, true) },
+        onmouseleave: function(e) { change_style(name, false) },
+      };
+      colorize(nominals[0], undefined, attr);
+      return false;
+    }
     options = options || {};
+    //cache = cache || {};
     cache = {};
     cache.scopes = scopes.init();
-    cache.regexps = (function (SYNTAX) {
-      var ret = [], nominal_index;
-      for(var rule in COMMON) ret.push(COMMON[rule]);
-      for(var rule in SYNTAX) SYNTAX[rule] && ret.push(SYNTAX[rule]) && rule=='nominal' && (nominal_index=ret.length-1);
-      return [ret, nominal_index];
-    })(createSyntaxRules(lang));
-
+    cache.rules = createSyntaxRules(lang);
+    cache.nominal   = { r:'', css:STYLE.nominal, p:2, update:create_ref };
     cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
     var text = element.innerHTML
                .replace(/&lt;/g,   '<')
@@ -290,6 +331,8 @@
     while (div.firstChild) {
       div.removeChild(div.firstChild);
     }
+    if(cache.line && cache.line.innerHTML)
+      cache.codeArea.appendChild(cache.line.parentNode);
     div.appendChild(cache.codeArea);
     element.parentNode.replaceChild(div, element);
 
