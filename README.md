@@ -4,7 +4,7 @@ A regex-based syntax highlighter that supports simple variable tracing. Still in
 
 ## Demo
 * [JavaScript](http://prog-fun.blogspot.tw/2013/02/javascript-demo-for-highlightjs.html)
-* [Scala](http://ericpony.blogspot.tw/2014/06/scala-functors-and-monads.html)
+* [Scala](http://prog-fun.blogspot.tw/2013/02/scala-demo-for-highlightjs.html)
 * Java
 * C++
 
