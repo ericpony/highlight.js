@@ -17,41 +17,42 @@
   };
 
   var LANG = {
-    'Scala': {
-        rules: { // incomplete
-          //nominal:   '', // a workaround to prevent nominals from being preempted by type rule. Elaboration needed.
+    'Scala': { // incomplete
+        syntax: {
           type:      /\b[$_]*[A-Z][$\w]*\b/g,
-          keyword:  'type yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
+          keyword:  'yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
           literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol }, // symbol literal
-          type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=({]*)(\([^)]*\))|(object|trait|class)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
-          ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=(]*(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
+          type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=\n({]*)(\([^)]*\))|(object|trait|class|type)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
+          ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
           //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
         },
-        parameters: ''
+        param_list_rule: ''
     },
-    'JavaScript': {
-        rules: { // incomplete
+    'JavaScript': { // incomplete
+        syntax: {
           type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
           keyword:   'in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
           type_ctor: /\b(new)\s+([$\w]+)/g,
-//          type_ctor: /\b(function\*?(?=\s+[A-Z])|new)\s+([$\w]+)/g,
-          ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,//|(function\*?)\s*\(([^)]*)\))/g,
+          ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g
         },
-        parameters: /([$\w]+)([^,]*,?\W*)/g,
+        param_list_rule: /([$\w]+)([^,]*,?\W*)/g,
     },
-    'Java': {
-        rules: { // incomplete
-          type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
+    'Java': { // untested
+        syntax: {
           type:      'int float char boolean void long short double String null',
           keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
+          type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g
         },
-        parameters: ''
+        param_list_rule: ''
     },
-    'C++': { // incomplete
-      type_ctor: '',
-      type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
-      keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
+    'C++': { // untested
+      syntax: {
+        type_ctor: '',
+        type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
+        keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
+      },
+      param_list_rule: ''
     }
   };
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
@@ -96,7 +97,7 @@
         else {
           var span = document.createElement('SPAN');
           span.className = css;
-          span.innerHTML = lines[i];
+          span.innerText = lines[i];
           if(attr) {
             if(attr.name) {
               var anchor = document.createElement('A');
@@ -121,7 +122,7 @@
   }
 
   function createSyntaxRules(lang) {
-    var syntax = LANG[lang].rules;
+    var syntax = LANG[lang].syntax;
     if(!syntax) return null;
     if(syntax.processed) return syntax;
     function regex(str) {
@@ -140,33 +141,32 @@
           onmouseover:  function(e) { change_style(name, true) },
           onmouseleave: function(e) { change_style(name, false) },
         };
-        attr.className = LANG[lang].rules.type_ctor.css + ' ' + name;
+        attr.className = LANG[lang].syntax.type_ctor.css + ' ' + name;
         attr.name      = name;
         colorize(nominals[0], undefined, attr);
         cache.scopes.add_nominal(nominals[0]);
       }
       for(var i=1; i<nominals.length; i++) {
-        if(nominals[i] === undefined) continue;
+        if(!nominals[i]) continue;
         if(nominals[i][0]!='(' || nominals[i][nominals[i].length-1]!=')') {
           colorize(nominals[i]);
           continue;
         }
-        nominals[i] = nominals[i].substr(1, nominals[i].length-2);
+        var param_list = nominals[i].slice(1, -1);
         colorize('(');
-        cache.scopes.create();
-        if(nominals[i]) { // is nonempty
-          var para_rule = LANG[lang].parameters;
-          if(para_rule) {
-            var rr, r = new RegExp(para_rule);
-            var names = [];
-            while ((rr = r.exec(nominals[i])) !== null) {
+        cache.scopes.create(true);
+        if(param_list) { // is nonempty
+          var param_rule = LANG[lang].param_list_rule;
+          if(!param_rule) 
+            parse(param_list);
+          else {
+            var rr, r = new RegExp(param_rule);
+            while ((rr = r.exec(param_list)) !== null) {
               create_nominal([rr[1]]);
-              names.push(rr[1]);
               //colorize(rr[2]);
               parse(rr[2]);
             }
-          }else
-             parse(nominals[i]);
+          }
         }
         colorize(')');
       }
@@ -187,13 +187,14 @@
     return {
       id:      gen_id(),
       init:    function(lang) { _lang = lang; _stack = []; this.create(); return this },
-      destroy: function() { _stack.pop(); this.update_regex(); },
+      destroy: function() { _stack.pop(); this.update_regex(); if(!this.current()){debugger} },
       current: function() { return _stack[_stack.length-1] },
-      create:  function(is_block) {
-        if(is_block && !this.current().is_block)
-          this.current().is_block = true;
+      create:  function(is_half_opened) {
+        var scope = this.current();
+        if(scope && scope.is_half_opened)
+          scope.is_half_opened = false;
         else
-          _stack.push({ id: this.id + '-' + gen_id(), is_block: !_stack.length, nominals:{}, nominal_regex:'' });
+          _stack.push({ id: this.id + '-' + gen_id(), open:is_half_opened, nominals:{}, nominal_regex:'' });
       },
       lookup:  function(name) {
         for(var i=_stack.length-1; i>=0; i--)
@@ -207,7 +208,7 @@
         this.update_regex();
       },
       update_regex: function() {
-        var syntax  = LANG[lang].rules;
+        var syntax  = LANG[lang].syntax;
         var regexes = [];
         for(var i=0; i<_stack.length; i++)
           if(_stack[i].nominal_regex)
@@ -218,7 +219,7 @@
         r.lastIndex = cache.nominal.r.lastIndex;
         cache.nominal.r = r;
       },
-      state: function() { return _stack; }
+      state: function() { return _stack }
     };
   })();
   function parse(text) {
@@ -241,7 +242,7 @@
       }
       ret.push(cache.nominal);
       return ret;
-    })(cache.rules);
+    })(cache.syntax);
     var pos = lexers.map(function(){ return 0 });
     var tokens = [];
     //var nominal_last_index = cache.nominal.r.lastIndex;
@@ -253,7 +254,7 @@
       for(var i = 0; i < lexers.length; i++) {
         if(pos[i] == null) continue;
         if(!lexers[i].r) continue;
-        if(pos[i] == 0 || pos[i].index < last_index) {
+        if(!pos[i] || pos[i].index < last_index) {
           lexers[i].r.lastIndex = last_index;
           pos[i] = lexers[i].r.exec(text);
           if(pos[i] == null) continue;
@@ -268,18 +269,17 @@
         if(pos[i].index<p || (pos[i].index==p && lexers[ii].p<lexers[i].p)) { p = pos[i].index; ii = i; }
       }
 
-      if(ii == -1){ colorize(text.slice(last_index)); break;} // no highlight needed anymore
+      if(ii == -1) { colorize(text.slice(last_index)); break; } // no highlight needed anymore
 
-      colorize(text.slice(last_index, p));  // plain text in text[last_index...p]
+      colorize(text.slice(last_index, p));  // generate plaintext for text[last_index...p-1]
       if(tokens[ii][0]) {
         colorize(tokens[ii][0] + ' ', STYLE.keyword);
       }else {
         if(tokens[ii][1] == '{') {
-          cache.scopes.create(true);
+          cache.scopes.create();
         }else if(tokens[ii][1] == '}') {
           cache.scopes.destroy();
           pos[pos.length-1] = 0;  // reset the last position of searched text for nominal rule
-          if(!cache.scopes.current()) debugger;
         }
       }
       if(lexers[ii].update) {
@@ -303,7 +303,7 @@
       if(!scope) { colorize(nominals[0]); return false }
       var name = 'r' + scope.id + '-' + nominals[0];
       attr = {
-        className:    LANG[lang].rules.ref_ctor.css + ' ' + name,
+        className:    LANG[lang].syntax.ref_ctor.css + ' ' + name,
         onclick:      function(e) { location.href = '#' + name },
         onmouseover:  function(e) { change_style(name, true) },
         onmouseleave: function(e) { change_style(name, false) },
@@ -315,16 +315,17 @@
     //cache = cache || {};
     cache = {};
     cache.scopes = scopes.init();
-    cache.rules = createSyntaxRules(lang);
+    cache.syntax = createSyntaxRules(lang);
     cache.nominal   = { r:'', css:STYLE.nominal, p:2, update:create_ref };
     cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
-    var text = element.innerHTML
-               .replace(/&lt;/g,   '<')
-               .replace(/&gt;/g,   '>')
+    //var text = element.innerText
+               //.replace(/&lt;/g,   '<')
+               //.replace(/&gt;/g,   '>')
                //.replace(/&quot;/g, '"')
                //.replace(/&nbsp;/g, ' ')
-               .replace(/&amp;/g,  '&');
-    parse(text);
+               //.replace(/&amp;/g,  '&');
+               //console.log(text);
+    parse(element.innerText);
 
     var div = document.createElement('DIV');
     div.className = 'sh';
@@ -336,7 +337,7 @@
     div.appendChild(cache.codeArea);
     element.parentNode.replaceChild(div, element);
 
-  }// end of function parse
+  }
 
   for(var lang in LANG) {
     var snippets = document.getElementsByClassName(lang);
