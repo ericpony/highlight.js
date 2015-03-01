@@ -97,7 +97,7 @@
         else {
           var span = document.createElement('SPAN');
           span.className = css;
-          span.innerText = lines[i];
+          span.textContent = lines[i];
           if(attr) {
             if(attr.name) {
               var anchor = document.createElement('A');
@@ -318,14 +318,14 @@
     cache.syntax = createSyntaxRules(lang);
     cache.nominal   = { r:'', css:STYLE.nominal, p:2, update:create_ref };
     cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
-    //var text = element.innerText
+    //var text = element.textContent
                //.replace(/&lt;/g,   '<')
                //.replace(/&gt;/g,   '>')
                //.replace(/&quot;/g, '"')
                //.replace(/&nbsp;/g, ' ')
                //.replace(/&amp;/g,  '&');
                //console.log(text);
-    parse(element.innerText);
+    parse(element.textContent);
 
     var div = document.createElement('DIV');
     div.className = 'sh';
