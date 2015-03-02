@@ -26,7 +26,7 @@
           ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
           //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
         },
-        param_list_regex: ''
+        paramlist_regex: ''
     },
     'JavaScript': { // incomplete
         regex: {
@@ -36,7 +36,7 @@
           type_ctor: /\b(new)\s+([$\w]+)/g,
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g
         },
-        param_list_regex: /([$\w]+)([^,]*,?\W*)/g,
+        paramlist_regex: /([$\w]+)([^,]*,?\W*)/g,
     },
     'Java': { // untested
         regex: {
@@ -44,7 +44,7 @@
           keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
           type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g
         },
-        param_list_regex: ''
+        paramlist_regex: ''
     },
     'C++': { // untested
       regex: {
@@ -52,7 +52,7 @@
         type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
         keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
       },
-      param_list_regex: ''
+      paramlist_regex: ''
     }
   };
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
@@ -68,7 +68,7 @@
     {r: /[{}]/g,                css: '',              p:0 }
   ];
 
-  var cache = {}, persist = {};
+  var cache = {};
 
   var create_link = (function() {
     function lighten(name, on) {
@@ -89,7 +89,7 @@
  var create_syntax = (function() {
     function regexp(pattern) {
       if(!pattern || typeof pattern != 'string') return pattern;
-      return new RegExp(regex('\\b(?:' + pattern.replace(/ /g, '|') + ')\\b'), 'g');
+      return new RegExp('\\b(?:' + pattern.replace(/ /g, '|') + ')\\b', 'g');
     }
     function create_nominal(nominals) {
       if(nominals[0]) {
@@ -107,16 +107,16 @@
           colorize(nominals[i]);
           continue;
         }
-        var param_list = nominals[i].slice(1, -1);
+        var paramlist = nominals[i].slice(1, -1);
         colorize('(');
         scopes.create(true);
-        if(param_list) { // is nonempty
-          var param_rule = cache.param_list_rule;
-          if(!param_rule)
-            parse(param_list);
+        if(paramlist) { // is nonempty
+          var paramlist_rule = cache.paramlist_regex;
+          if(!paramlist_rule)
+            parse(paramlist);
           else {
-            var rr, r = new RegExp(param_rule);
-            while ((rr = r.exec(param_list)) !== null) {
+            var rr, r = new RegExp(paramlist_rule);
+            while ((rr = r.exec(paramlist)) !== null) {
               create_nominal([rr[1]]);
               //colorize(rr[2]);
               parse(rr[2]);
@@ -172,9 +172,9 @@
             regexes.push(_stack[i].nominal_regex);
         if(!regexes.length) return;
         var r = new RegExp(regexes.join('|'), 'g');
-        r.index     = persist.nominal.r.index;
-        r.lastIndex = persist.nominal.r.lastIndex;
-        persist.nominal.r = r;
+        r.index     = LANG.nominal.r.index;
+        r.lastIndex = LANG.nominal.r.lastIndex;
+        LANG.nominal.r = r;
       },
       state: function() { return _stack }
     };
@@ -284,7 +284,7 @@
     options = options || {};
     //cache = cache || {};
     for(var a in attr) cache[a] = attr[a];
-    persist.nominal.r = '';
+    LANG.nominal.r = '';
     cache.codeArea    = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
     scopes.reset();
     //var text = element.textContent
@@ -307,7 +307,7 @@
     element.parentNode.replaceChild(div, element);
   }
 
-  persist.nominal = {
+  LANG.nominal = {
     css:    STYLE.nominal,
     update: function(nominals) {
       var scope = scopes.lookup(nominals[0]);
@@ -333,23 +333,22 @@
   };
 
   for(var lang in LANG) {
-    persist[lang] = {};
-    persist[lang].syntax = create_syntax(lang);
-    persist[lang].lexers = (function(SYNTAX) {
+    LANG[lang].syntax = create_syntax(lang);
+    LANG[lang].lexers = (function(SYNTAX) {
       var ret = [];
       for(var rule in COMMON) ret.push(COMMON[rule]);
       for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
       ret[-1] = { p: -1 }; // just a hack
-      ret.push(persist.nominal);
+      ret.push(LANG.nominal);
       return ret;
-    })(persist[lang].syntax);
+    })(LANG[lang].syntax);
 
     var snippets = document.getElementsByClassName(lang);
 
     while(snippets.length) {
       var code = snippets[0];
       var options  = {lineno: 1||code.attributes['lineno'] };
-      create_highlighted_code(code, persist[lang], options);
+      create_highlighted_code(code, LANG[lang], options);
     }
   }
 })();
