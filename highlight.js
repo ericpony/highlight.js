@@ -21,10 +21,11 @@
         regex: {
           type:      /\b[$_]*[A-Z][$\w]*\b/g,
           keyword:  'yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
-          literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol }, // symbol literal
+          literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol, p: 0 }, // symbol literal
           type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=\n({]*)(\([^)]*\))|(object|trait|class|type)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
           ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
           //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
+          one_line_func_end: { r: /\n/g, css: '', p: 0 }
         },
         paramlist_regex: ''
     },
@@ -92,14 +93,14 @@
     }
     function create_nominal(nominals) {
       if(nominals[0]) {
-        var scope = scopes.current();
+        var scope = Scopes.current();
         var name = 'r' + scope.id + '-' + nominals[0];
         var attr = create_link(name);
         //attr.className = cache.syntax.type_ctor.css + ' ' + name;
         attr.className = STYLE.type + ' ' + name;
         attr.name      = name;
         colorize(nominals[0], undefined, attr);
-        scopes.add_nominal(nominals[0]);
+        Scopes.add_nominal(nominals[0]);
       }
       for(var i=1; i<nominals.length; i++) {
         if(!nominals[i]) continue;
@@ -109,7 +110,7 @@
         }
         var paramlist = nominals[i].slice(1, -1);
         colorize('(');
-        scopes.create(true);
+        Scopes.create(false);
         if(paramlist) { // is nonempty
           var paramlist_rule = cache.paramlist_regex;
           if(!paramlist_rule)
@@ -129,30 +130,46 @@
     }
     return function(lang) {
       var syntax = LANG[lang].regex;
-      if(syntax.keyword)   syntax.keyword   = { r: regexp(syntax.keyword),  css: STYLE.keyword,  p: 0 };
-      if(syntax.type)      syntax.type      = { r: regexp(syntax.type),     css: STYLE.type,     p: 1 };
-      if(syntax.built_in)  syntax.built_in  = { r: regexp(syntax.built_in), css: STYLE.built_in, p: 0 };
-      if(syntax.type_ctor) syntax.type_ctor = { r: syntax.type_ctor,        css: STYLE.type,     p: 3, update: create_nominal };
-      if(syntax.ref_ctor)  syntax.ref_ctor  = { r: syntax.ref_ctor,         css: STYLE.nominal,  p: 3, update: create_nominal };
+      if(!LANG[lang].processed) {
+        if(syntax.keyword)   syntax.keyword   = { r: regexp(syntax.keyword),  css: STYLE.keyword,  p: 0 };
+        if(syntax.type)      syntax.type      = { r: regexp(syntax.type),     css: STYLE.type,     p: 1 };
+        if(syntax.built_in)  syntax.built_in  = { r: regexp(syntax.built_in), css: STYLE.built_in, p: 0 };
+        if(syntax.type_ctor) syntax.type_ctor = { r: syntax.type_ctor,        css: STYLE.type,     p: 3, update: create_nominal };
+        if(syntax.ref_ctor)  syntax.ref_ctor  = { r: syntax.ref_ctor,         css: STYLE.nominal,  p: 3, update: create_nominal };
+        LANG[lang].processed = true;
+      }
       return syntax;
     }
   })();
 
-  var scopes = (function() {
+  var Scopes = (function() {
     var _stack = [];
     var _lang;
     function gen_id() { return Math.random().toString().substr(2,4) }
     return {
       id:      gen_id(),
-      reset:   function(lang) { _lang = lang; _stack = []; this.create(); return this },
-      destroy: function() { _stack.pop(); this.update_nominals(); if(!this.current()){debugger} },
+      reset:   function(lang) { _lang = lang; _stack = []; this.create(true); return this },
       current: function() { return _stack[_stack.length-1] },
-      create:  function(is_half_opened) {
-        var scope = this.current();
-        if(scope && scope.is_half_opened)
-          scope.is_half_opened = false;
+      destroy: function(is_enclosed) {
+        if(is_enclosed) 
+          while(!_stack.pop().is_enclosed);
+        else if(!this.current().is_enclosed)
+          _stack.pop();
         else
-          _stack.push({ id: this.id + '-' + gen_id(), open:is_half_opened, nominals:{}, nominal_regex:'' });
+          return;
+        if(!this.current()) debugger;
+        this.update_nominals();
+      },
+      create:  function(is_enclosed) {
+        var scope = this.current();
+        if(scope && !scope.is_enclosed) {
+          if(is_enclosed) {
+            scope.is_enclosed = true;
+            return;
+          }
+          this.destroy(false);
+        }
+        _stack.push({ id: this.id + '-' + gen_id(), is_enclosed: is_enclosed, nominals: {}, nominal_regex: '' });
       },
       lookup:  function(name) {
         for(var i=_stack.length-1; i>=0; i--)
@@ -172,9 +189,9 @@
             regexes += '|' + _stack[i].nominal_regex;
         if(!regexes.length) return;
         var r = new RegExp('\\b(?:' + regexes.slice(1) + ')\\b', 'g');
-        r.index     = LANG.nominal.r.index;
-        r.lastIndex = LANG.nominal.r.lastIndex;
-        LANG.nominal.r = r;
+        r.index     = Scopes.nominal.r.index;
+        r.lastIndex = Scopes.nominal.r.lastIndex;
+        Scopes.nominal.r = r;
       },
       state: function() { return _stack }
     };
@@ -225,7 +242,7 @@
   function parse(text) {
     var last_index = 0, attr;
     var lexers = cache.lexers;
-    var matchs = lexers.map(function(){ return 0 });
+    var matches = lexers.map(function(){ return 0 });
     var states = lexers.map(function(lexer){ return lexer.r.lastIndex });
     var tokens = [];
 
@@ -233,22 +250,22 @@
       var ii  = -1;
       var pos = text.length;
       for(var i = 0; i < lexers.length; i++) {
-        if(matchs[i] == null) continue;
+        if(matches[i] == null) continue;
         if(!lexers[i].r) continue;
-        if(!matchs[i] || matchs[i].index < last_index) {
+        if(!matches[i] || matches[i].index < last_index) {
           lexers[i].r.lastIndex = last_index;
-          matchs[i] = lexers[i].r.exec(text);
-          if(matchs[i] == null) continue;
-          tokens[i] = [undefined, matchs[i][0]];
-          if(matchs[i].length>=2) {
-            for(var j=1, k=0; j<matchs[i].length; j++) {
-              while(matchs[i][j]===undefined && ++j<matchs[i].length);
-              tokens[i][k++] = matchs[i][j];
+          matches[i] = lexers[i].r.exec(text);
+          if(matches[i] == null) continue;
+          tokens[i] = [undefined, matches[i][0]];
+          if(matches[i].length>=2) {
+            for(var j=1, k=0; j<matches[i].length; j++) {
+              while(matches[i][j]===undefined && ++j<matches[i].length);
+              tokens[i][k++] = matches[i][j];
             }
           }
         }
-        if(matchs[i].index<pos || (matchs[i].index==pos && lexers[ii].p<lexers[i].p)) {
-          pos = matchs[i].index;
+        if(matches[i].index<pos || (matches[i].index==pos && lexers[ii].p<lexers[i].p)) {
+          pos = matches[i].index;
           ii = i;
         }
       }// end of for
@@ -261,15 +278,16 @@
         colorize(tokens[ii][0] + ' ', STYLE.keyword);
       }else {
         if(tokens[ii][1] == '{') {
-          scopes.create();
+          Scopes.create(true);
         }else if(tokens[ii][1] == '}') {
-          scopes.destroy();
-          matchs[matchs.length-1] = 0;  // reset searched test for nominal rule
+          Scopes.destroy(true);
+        }else if(tokens[ii][1] == '\n') {
+          Scopes.destroy(false);
         }
       }
       if(lexers[ii].update) {
         if(lexers[ii].update(tokens[ii].slice(1)))
-          matchs[matchs.length-1] = 0;  // reset searched test for nominal rule
+          matches[matches.length-1] = 0;  // reset searched test for nominal rule
       }else
         colorize(tokens[ii][1], lexers[ii].css);
 
@@ -284,9 +302,9 @@
     options = options || {};
     //cache = cache || {};
     for(var a in attr) cache[a] = attr[a];
-    LANG.nominal.r = '';
+    Scopes.nominal.r = '';
     cache.codeArea    = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
-    scopes.reset();
+    Scopes.reset();
     //var text = element.textContent
                //.replace(/&lt;/g,   '<')
                //.replace(/&gt;/g,   '>')
@@ -307,21 +325,21 @@
     element.parentNode.replaceChild(div, element);
   }
 
-  LANG.nominal = {
+  Scopes.nominal = {
     css:    STYLE.nominal,
     update: function(nominals) {
-      var scope = scopes.lookup(nominals[0]);
+      var scope = Scopes.lookup(nominals[0]);
       //if(!scope) return create_nominal(nominals);
       if(!scope) { colorize(nominals[0]); return false }
       var name = 'r' + scope.id + '-' + nominals[0];
       attr = create_link(name);
-      attr.className = LANG.nominal.css + ' ' + name,
+      attr.className = Scopes.nominal.css + ' ' + name,
       attr.onclick   = function(e) {
         location.href = '#' + name;
         var node = document.querySelector('[name=' + name + ']').parentNode.parentNode;
         node.style.transition = '';
         node.style.backgroundColor = '#FF0';
-        setTimeout(function() { 
+        setTimeout(function() {
           node.style.transition = 'background .5s ease-in-out';
           node.style.backgroundColor = '';
         }, 10);
@@ -339,7 +357,7 @@
       for(var rule in COMMON) ret.push(COMMON[rule]);
       for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
       ret[-1] = { p: -1 }; // just a hack
-      ret.push(LANG.nominal);
+      ret.push(Scopes.nominal);
       return ret;
     })(LANG[lang].syntax);
 
