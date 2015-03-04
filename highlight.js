@@ -31,9 +31,8 @@
     'JavaScript': { // incomplete
         regex: {
           type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
-          keyword:   'in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
+          keyword:   'new in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
-          type_ctor: /\b(new)\s+([$\w]+)/g,
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g
         },
         paramlist_regex: /([$\w]+)([^,]*,?\W*)/g,
@@ -96,7 +95,8 @@
         var scope = scopes.current();
         var name = 'r' + scope.id + '-' + nominals[0];
         var attr = create_link(name);
-        attr.className = cache.syntax.type_ctor.css + ' ' + name;
+        //attr.className = cache.syntax.type_ctor.css + ' ' + name;
+        attr.className = STYLE.type + ' ' + name;
         attr.name      = name;
         colorize(nominals[0], undefined, attr);
         scopes.add_nominal(nominals[0]);
@@ -161,17 +161,17 @@
       add_nominal: function(name) {
         var scope = this.current();
         if(scope.nominals[name]) return;
-        scope.nominal_regex = !scope.nominal_regex ? ('\\b' + name + '\\b') : (scope.nominal_regex + '|\\b' + name + '\\b');
+        scope.nominal_regex = !scope.nominal_regex ? name : (scope.nominal_regex + '|' + name);
         scope.nominals[name] = true;
         this.update_nominals();
       },
       update_nominals: function() {
-        var regexes = [];
+        var regexes = '';
         for(var i=0; i<_stack.length; i++)
           if(_stack[i].nominal_regex)
-            regexes.push(_stack[i].nominal_regex);
+            regexes += '|' + _stack[i].nominal_regex;
         if(!regexes.length) return;
-        var r = new RegExp(regexes.join('|'), 'g');
+        var r = new RegExp('\\b(?:' + regexes.slice(1) + ')\\b', 'g');
         r.index     = LANG.nominal.r.index;
         r.lastIndex = LANG.nominal.r.lastIndex;
         LANG.nominal.r = r;
@@ -315,7 +315,7 @@
       if(!scope) { colorize(nominals[0]); return false }
       var name = 'r' + scope.id + '-' + nominals[0];
       attr = create_link(name);
-      attr.className = cache.syntax.ref_ctor.css + ' ' + name,
+      attr.className = LANG.nominal.css + ' ' + name,
       attr.onclick   = function(e) {
         location.href = '#' + name;
         var node = document.querySelector('[name=' + name + ']').parentNode.parentNode;
