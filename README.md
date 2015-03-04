@@ -1,6 +1,6 @@
 # highlight.js
 
-A regex-based syntax highlighter that supports simple variable tracing. Still in development.
+An experimental regex-based syntax highlighter that supports simple variable tracing. Still in development.
 
 ## Demo
 * [JavaScript](http://prog-fun.blogspot.tw/2013/02/javascript-demo-for-highlightjs.html)
@@ -13,4 +13,4 @@ I borrowed regex grammar rules from [prettify.js](http://code.google.com/p/googl
 
 ## License
 
-GPL v2
+GPL2
