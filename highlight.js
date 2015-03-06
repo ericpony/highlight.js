@@ -68,7 +68,7 @@
     {r: /[{}]/g,                css: '',              p:0 }
   ];
 
-  var cache = {};
+  var cache;
 
   var create_link = (function() {
     function lighten(name, on) {
@@ -300,10 +300,10 @@
 
   function create_highlighted_code(element, attr, options) {
     options = options || {};
-    //cache = cache || {};
+    cache = {};
     for(var a in attr) cache[a] = attr[a];
     Scopes.nominal.r = '';
-    cache.codeArea    = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
+    cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
     Scopes.reset();
     //var text = element.textContent
                //.replace(/&lt;/g,   '<')
