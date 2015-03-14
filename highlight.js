@@ -25,7 +25,9 @@
           type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=\n({]*)(\([^)]*\))|(object|trait|class|type)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
           ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
           //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
-          one_line_func_end: { r: /\n/g, css: '', p: 0 }
+          newline:  { r: /\n/g, css: '', p: 0 },
+          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
         paramlist_regex: ''
     },
@@ -34,15 +36,32 @@
           type:      'Object Function Boolean Error EvalError InternalError RangeError ReferenceError StopIteration SyntaxError TypeError URIError Number Math Date String RegExp Array Float32Array Float64Array Int16Array Int32Array Int8Array Uint16Array Uint32Array Uint8Array Uint8ClampedArray ArrayBuffer DataView JSON Intl',
           keyword:   'new in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
-          ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g
+          ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,
+          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
         paramlist_regex: /([$\w]+)([^,]*,?\W*)/g,
+    },
+    'Bash': {
+      regex: { 
+        keyword : 'if then else elif fi for while in do done case esac local set until true false',
+        built_in: 'break cd continue eval exec exit export getopts pwd return shift test alias trap bash',
+        ref_ctor: /\b(?:()(\S+)(?==)|(function)\b\s*([$\w]*))/g,
+        param1:  { r: /--\w\S+/g,     style: {color: '#393'},   p:0 },
+        param2:  { r: /-\S+/g,        style: {color: '#099'},   p:0 },
+        comment: { r: /#.*/g,         style: {color: 'gray'},   p:0 },
+        posvar:  { r: /\$[\d?!#]+/g,  css: STYLE.nominal,       p:0 }, 
+        varsign: { r: /\$(?=\w)/g,    css: STYLE.nominal,       p:0 }, 
+      },
+      paramlist_regex: ''
     },
     'Java': { // untested
         regex: {
           type:      'int float char boolean void long short double String null',
           keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
-          type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g
+          type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
+          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
         paramlist_regex: ''
     },
@@ -51,6 +70,9 @@
         type_ctor: '',
         type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
         keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
+        comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+        comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+        macro:    {r: /^ *#.*/gm,             css: STYLE.macro,     p:0 },
       },
       paramlist_regex: ''
     }
@@ -58,9 +80,6 @@
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
 
   var COMMON = [
-    {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
-    {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-    {r: /^ *#.*/gm,             css: STYLE.macro,     p:0 },
     {r: /"[^"]*"/g,             css: STYLE.string,    p:0 },
     {r: /'[^']*'/g,             css: STYLE.character, p:0 },
     {r: /0[xX][\da-fA-F]+/g,    css: STYLE.hex_value, p:0 },
@@ -99,7 +118,7 @@
         //attr.className = cache.syntax.type_ctor.css + ' ' + name;
         attr.className = STYLE.type + ' ' + name;
         attr.name      = name;
-        colorize(nominals[0], undefined, attr);
+        colorize(nominals[0], undefined, undefined, attr);
         Scopes.add_nominal(nominals[0]);
       }
       for(var i=1; i<nominals.length; i++) {
@@ -197,7 +216,7 @@
     };
   })();
 
-  function colorize(str, css, attr) {
+  function colorize(str, css, style, attr) {
     if(!str) return;
     //var lines = escape(str).split('\n');
     var lines = str.split('\n');
@@ -210,12 +229,12 @@
         cache.line = line;
       }
       if(lines[i] != '') {
-        if(!css && !attr)
+        if(!css && !style && !attr)
           cache.line.appendChild(document.createTextNode(lines[i].replace(/ /g,'\u00a0')));
         else {
           var span = document.createElement('SPAN');
-          span.className = css;
-          span.textContent = lines[i];
+          if(css) span.className = css;
+          if(style) for(var name in style) span.style[name] = style[name];
           if(attr) {
             if(attr.name) {
               var anchor = document.createElement('A');
@@ -227,6 +246,7 @@
             }
             for(var a in attr) span[a] = attr[a];
           }
+          span.textContent = lines[i];
           cache.line.appendChild(span);
         }
       }
@@ -289,7 +309,7 @@
         if(lexers[ii].update(tokens[ii].slice(1)))
           matches[matches.length-1] = 0;  // reset searched test for nominal rule
       }else
-        colorize(tokens[ii][1], lexers[ii].css);
+        colorize(tokens[ii][1], lexers[ii].css, lexers[ii].style);
 
       if(last_index == lexers[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
       last_index = lexers[ii].r.lastIndex;
@@ -344,7 +364,7 @@
           node.style.backgroundColor = '';
         }, 10);
       };
-      colorize(nominals[0], undefined, attr);
+      colorize(nominals[0], undefined, undefined, attr);
       return false;
     },
     p: 2
