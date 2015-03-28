@@ -248,7 +248,7 @@
           if(_stack[i].nominal_regex)
             regexes += '|' + _stack[i].nominal_regex;
         if(!regexes.length) return;
-        var r = new RegExp('\\b(?:' + regexes.slice(1) + ')\\b', 'g');
+        var r = new RegExp('\\b\\.?(?:' + regexes.slice(1) + ')\\b', 'g');
         r.index     = Scopes.nominal.r.index;
         r.lastIndex = Scopes.nominal.r.lastIndex;
         Scopes.nominal.r = r;
