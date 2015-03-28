@@ -30,13 +30,14 @@
             var regex = /(val|var|def|object|trait|class|type)\s+([$\w]+)/g;
             return {
               lastIndex: 0,
-              skim: function(text, pos, begin_mark, end_mark) {
+              parse: function(text, pos, begin_mark, end_mark, createScope) {
                 var spaces = '';
                 while(text[pos] == ' '){ spaces+=' '; pos++; }
-                append(spaces);
-                if(text[pos]==begin_mark) 
+                colorize(spaces);
+                if(text[pos]==begin_mark) {
+                  if(createScope) Scopes.create(false);
                   return parse_block(text, pos, begin_mark, end_mark);
-                else
+                }else
                   return pos;
               },
               exec: function(text) {
@@ -44,9 +45,9 @@
                 var res = regex.exec(text);
                 if(!res) return null;
                 var fun = function() {
-                  var pos = this.skim(text, res.index + res[0].length, '[', ']');
+                  var depth = 0, pos = this.parse(text, res.index + res[0].length, '[', ']');
                   while(true) {
-                    var p = this.skim(text, pos, '(', ')');
+                    var p = this.parse(text, pos, '(', ')', depth++ == 0);
                     if(p == pos)
                       break;
                     else
@@ -61,7 +62,7 @@
               }
             };
           })(),
-          newline:  { r: /\n/g, css: '', p: 0 },
+//        newline:  { r: /\n/g, css: '', p: 0 },
           comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
           comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
@@ -159,11 +160,11 @@
         continue;
       }
       if(nominals[i][0]!='(' || nominals[i][nominals[i].length-1]!=')') {
-        append(nominals[i]);
+        colorize(nominals[i]);
         continue;
       }
       var paramlist = nominals[i].slice(1, -1);
-      append('(');
+      colorize('(');
       Scopes.create(false);
       if(paramlist) { // is nonempty
         var paramlist_rule = cache.paramlist_regex;
@@ -173,12 +174,12 @@
           var rr, r = new RegExp(paramlist_rule);
           while ((rr = r.exec(paramlist)) !== null) {
             create_nominal([rr[1]]);
-            //append(rr[2]);
+            //colorize(rr[2]);
             parse(rr[2]);
           }
         }
       }
-      append(')');
+      colorize(')');
     }
     return true;
   }
@@ -232,6 +233,7 @@
         _stack.push({ id: this.id + '-' + gen_id(), is_enclosed: is_enclosed, nominals: {}, nominal_regex: '' });
       },
       lookup:  function(name) {
+        if(name[0] == '.') return;
         for(var i=_stack.length-1; i>=0; i--)
           if(_stack[i].nominals[name]) return _stack[i];
       },
@@ -257,22 +259,10 @@
     };
   })();
 
-  function append(str) {
-    if(!str) return;
-    if(!cache.line) {
-      var li = document.createElement('LI');
-      var line = document.createElement('SPAN');
-      line.className = 'code';
-      li.appendChild(line);
-      cache.line = line;
-    }
-    cache.line.appendChild(document.createTextNode(str.replace(/ /g,'\u00a0')));
-  }
-
   function colorize(str, css, style, attr) {
     if(!str) return;
     //var lines = escape(str).split('\n');
-    var lines = str.split('\n');
+    var lines = str.replace(/ /g,'\u00a0').split('\n');
     for(var i = 0; i < lines.length; i++) {
       if(!cache.line) {
         var li = document.createElement('LI');
@@ -282,9 +272,9 @@
         cache.line = line;
       }
       if(lines[i] != '') {
-        if(!css && !style && !attr)
-          cache.line.appendChild(document.createTextNode(lines[i].replace(/ /g,'\u00a0')));
-        else {
+        if(!css && !style && !attr) {
+          cache.line.appendChild(document.createTextNode(lines[i]));
+        }else {
           var span = document.createElement('SPAN');
           if(css) span.className = css;
           if(style) for(var name in style) span.style[name] = style[name];
@@ -345,21 +335,21 @@
         }
       }// end of for
 
-      if(ii == -1) { append(text.slice(last_index)); break; } // no highlight needed anymore
+      if(ii == -1) { colorize(text.slice(last_index)); break; } // no highlight needed anymore
 
-      append(text.slice(last_index, pos));  // generate plaintext for text[last_index...pos-1]
+      colorize(text.slice(last_index, pos));  // generate plaintext for text[last_index...pos-1]
 
       if(!tokens[ii][0]) {
         if(tokens[ii][1] == '{') {
           Scopes.create(true);
         }else if(tokens[ii][1] == '}') {
           Scopes.destroy(true);
-        }else if(tokens[ii][1] == '\n') {
-          Scopes.destroy(false);
+//        }else if(tokens[ii][1] == '\n') {
+//          Scopes.destroy(false);
         }
       }else {
         colorize(tokens[ii][0], STYLE.keyword);
-        append(' ');
+        colorize(' ');
       }
       if(lexers[ii].update) {
         if(lexers[ii].update(tokens[ii].slice(1)))
@@ -378,9 +368,9 @@
     var end_pos = find_rightmost_paren_pos(text, begin_pos, begin_mark, end_mark);
     if(end_pos>=text.length) throw new Error('Invalid code: unmatched parentheses "' + begin_mark + '"');
     if(end_pos>begin_pos) {
-      append(begin_mark);
+      colorize(begin_mark);
       parse(text.substring(begin_pos + 1, end_pos))
-      append(end_mark);
+      colorize(end_mark);
     }
     return end_pos + 1;
   }
