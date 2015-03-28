@@ -22,9 +22,45 @@
           type:      /\b[$_]*[A-Z][$\w]*\b/g,
           keyword:  'yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
           literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol, p: 0 }, // symbol literal
-          type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=\n({]*)(\([^)]*\))|(object|trait|class|type)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
-          ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g,
-          //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g,
+          //type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=\n({]*)(\([^)]*\))|(object|trait|class|type)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
+          type_ctor: /\b(?:()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
+          //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g, // ver2
+          //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g, // ver1
+          ref_ctor: (function(){
+            var regex = /(val|var|def|object|trait|class|type)\s+([$\w]+)/g;
+            return {
+              lastIndex: 0,
+              skim: function(text, pos, begin_mark, end_mark) {
+                var spaces = '';
+                while(text[pos] == ' '){ spaces+=' '; pos++; }
+                append(spaces);
+                if(text[pos]==begin_mark) 
+                  return parse_block(text, pos, begin_mark, end_mark);
+                else
+                  return pos;
+              },
+              exec: function(text) {
+                regex.lastIndex = this.lastIndex;
+                var res = regex.exec(text);
+                if(!res) return null;
+                var fun = function() {
+                  var pos = this.skim(text, res.index + res[0].length, '[', ']');
+                  while(true) {
+                    var p = this.skim(text, pos, '(', ')');
+                    if(p == pos)
+                      break;
+                    else
+                      pos = p;
+                  }
+                  this.lastIndex = Math.max(pos, this.lastIndex);
+                }.bind(this);
+                this.lastIndex = regex.lastIndex;
+                var ret = ['', res[1], res[2], fun];
+                ret.index = res.index;
+                return ret;
+              }
+            };
+          })(),
           newline:  { r: /\n/g, css: '', p: 0 },
           comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
           comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
@@ -43,15 +79,15 @@
         paramlist_regex: /([$\w]+)([^,]*,?\W*)/g,
     },
     'Bash': {
-      regex: { 
+      regex: {
         keyword : 'if then else elif fi for while in do done case esac local set until true false',
         built_in: 'break cd continue eval exec exit export getopts pwd return shift test alias trap bash',
         ref_ctor: /\b(?:()(\S+)(?==)|(function)\b\s*([$\w]*))/g,
         param1:  { r: /--\w\S+/g,     style: {color: '#393'},   p:0 },
         param2:  { r: /-\S+/g,        style: {color: '#099'},   p:0 },
         comment: { r: /#.*/g,         style: {color: 'gray'},   p:0 },
-        posvar:  { r: /\$[\d?!#]+/g,  css: STYLE.nominal,       p:0 }, 
-        varsign: { r: /\$(?=\w)/g,    css: STYLE.nominal,       p:0 }, 
+        posvar:  { r: /\$[\d?!#]+/g,  css: STYLE.nominal,       p:0 },
+        varsign: { r: /\$(?=\w)/g,    css: STYLE.nominal,       p:0 },
       },
       paramlist_regex: ''
     },
@@ -105,47 +141,52 @@
     }
   })();
 
+  function create_nominal(nominals) {
+    if(nominals[0]) {
+      var scope = Scopes.current();
+      var name = 'r' + scope.id + '-' + nominals[0];
+      var attr = create_link(name);
+      //attr.className = cache.syntax.type_ctor.css + ' ' + name;
+      attr.className = STYLE.type + ' ' + name;
+      attr.name      = name;
+      colorize(nominals[0], undefined, undefined, attr);
+      Scopes.add_nominal(nominals[0]);
+    }
+    for(var i=1; i<nominals.length; i++) {
+      if(!nominals[i]) continue;
+      if(nominals[i].constructor === Function.prototype.constructor) {
+        nominals[i]();
+        continue;
+      }
+      if(nominals[i][0]!='(' || nominals[i][nominals[i].length-1]!=')') {
+        append(nominals[i]);
+        continue;
+      }
+      var paramlist = nominals[i].slice(1, -1);
+      append('(');
+      Scopes.create(false);
+      if(paramlist) { // is nonempty
+        var paramlist_rule = cache.paramlist_regex;
+        if(!paramlist_rule)
+          parse(paramlist);
+        else {
+          var rr, r = new RegExp(paramlist_rule);
+          while ((rr = r.exec(paramlist)) !== null) {
+            create_nominal([rr[1]]);
+            //append(rr[2]);
+            parse(rr[2]);
+          }
+        }
+      }
+      append(')');
+    }
+    return true;
+  }
+
  var create_syntax = (function() {
     function regexp(pattern) {
       if(!pattern || typeof pattern != 'string') return pattern;
       return new RegExp('\\b(?:' + pattern.replace(/ /g, '|') + ')\\b', 'g');
-    }
-    function create_nominal(nominals) {
-      if(nominals[0]) {
-        var scope = Scopes.current();
-        var name = 'r' + scope.id + '-' + nominals[0];
-        var attr = create_link(name);
-        //attr.className = cache.syntax.type_ctor.css + ' ' + name;
-        attr.className = STYLE.type + ' ' + name;
-        attr.name      = name;
-        colorize(nominals[0], undefined, undefined, attr);
-        Scopes.add_nominal(nominals[0]);
-      }
-      for(var i=1; i<nominals.length; i++) {
-        if(!nominals[i]) continue;
-        if(nominals[i][0]!='(' || nominals[i][nominals[i].length-1]!=')') {
-          colorize(nominals[i]);
-          continue;
-        }
-        var paramlist = nominals[i].slice(1, -1);
-        colorize('(');
-        Scopes.create(false);
-        if(paramlist) { // is nonempty
-          var paramlist_rule = cache.paramlist_regex;
-          if(!paramlist_rule)
-            parse(paramlist);
-          else {
-            var rr, r = new RegExp(paramlist_rule);
-            while ((rr = r.exec(paramlist)) !== null) {
-              create_nominal([rr[1]]);
-              //colorize(rr[2]);
-              parse(rr[2]);
-            }
-          }
-        }
-        colorize(')');
-      }
-      return true;
     }
     return function(lang) {
       var syntax = LANG[lang].regex;
@@ -170,7 +211,7 @@
       reset:   function(lang) { _lang = lang; _stack = []; this.create(true); return this },
       current: function() { return _stack[_stack.length-1] },
       destroy: function(is_enclosed) {
-        if(is_enclosed) 
+        if(is_enclosed)
           while(!_stack.pop().is_enclosed);
         else if(!this.current().is_enclosed)
           _stack.pop();
@@ -216,6 +257,18 @@
     };
   })();
 
+  function append(str) {
+    if(!str) return;
+    if(!cache.line) {
+      var li = document.createElement('LI');
+      var line = document.createElement('SPAN');
+      line.className = 'code';
+      li.appendChild(line);
+      cache.line = line;
+    }
+    cache.line.appendChild(document.createTextNode(str.replace(/ /g,'\u00a0')));
+  }
+
   function colorize(str, css, style, attr) {
     if(!str) return;
     //var lines = escape(str).split('\n');
@@ -260,6 +313,8 @@
   }
 
   function parse(text) {
+    if(!text) return '';
+
     var last_index = 0, attr;
     var lexers = cache.lexers;
     var matches = lexers.map(function(){ return 0 });
@@ -290,13 +345,11 @@
         }
       }// end of for
 
-      if(ii == -1) { colorize(text.slice(last_index)); break; } // no highlight needed anymore
+      if(ii == -1) { append(text.slice(last_index)); break; } // no highlight needed anymore
 
-      colorize(text.slice(last_index, pos));  // generate plaintext for text[last_index...pos-1]
+      append(text.slice(last_index, pos));  // generate plaintext for text[last_index...pos-1]
 
-      if(tokens[ii][0]) {
-        colorize(tokens[ii][0] + ' ', STYLE.keyword);
-      }else {
+      if(!tokens[ii][0]) {
         if(tokens[ii][1] == '{') {
           Scopes.create(true);
         }else if(tokens[ii][1] == '}') {
@@ -304,18 +357,45 @@
         }else if(tokens[ii][1] == '\n') {
           Scopes.destroy(false);
         }
+      }else {
+        colorize(tokens[ii][0], STYLE.keyword);
+        append(' ');
       }
       if(lexers[ii].update) {
         if(lexers[ii].update(tokens[ii].slice(1)))
           matches[matches.length-1] = 0;  // reset searched test for nominal rule
-      }else
+      }else {
         colorize(tokens[ii][1], lexers[ii].css, lexers[ii].style);
-
-      if(last_index == lexers[ii].r.lastIndex) { alert('[Error] Infinite parsing loop in highlight.js'); break }
+      }
+      if(last_index == lexers[ii].r.lastIndex) { throw new Error('[highlight.js] Detect an infinite loop!'); }
       last_index = lexers[ii].r.lastIndex;
       attr = undefined;
     }// end of while
     states.forEach(function(s,i){ lexers[i].r.lastIndex = s });
+  }
+
+  function parse_block(text, begin_pos, begin_mark, end_mark) {
+    var end_pos = find_rightmost_paren_pos(text, begin_pos, begin_mark, end_mark);
+    if(end_pos>=text.length) throw new Error('Invalid code: unmatched parentheses "' + begin_mark + '"');
+    if(end_pos>begin_pos) {
+      append(begin_mark);
+      parse(text.substring(begin_pos + 1, end_pos))
+      append(end_mark);
+    }
+    return end_pos + 1;
+  }
+
+  function find_rightmost_paren_pos(str, begin_pos, begin_mark, end_mark) {
+    if(str[begin_pos] != begin_mark) return str;
+    var c = 1, ptr = begin_pos + 1;
+    while(c>0 && ptr<str.length) {
+      switch(str[ptr]) {
+        case begin_mark: c++; break;
+        case end_mark:   c--; break;
+      }
+      ptr++;
+    }
+    return ptr - 1;
   }
 
   function create_highlighted_code(element, attr, options) {
