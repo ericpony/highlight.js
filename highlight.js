@@ -139,6 +139,12 @@
 
   var cache, debug_mode;
 
+  function timer() {
+    if(performance) return performance.now();
+    if(Date.now) return Date.now();
+    return new Date().getTime()*1000;
+  }
+
   var create_link = (function() {
     function lighten(name, on) {
       var elems = document.querySelectorAll('.' + name);
@@ -403,6 +409,7 @@
   }
 
   function create_highlighted_code(element, attr, options) {
+    var startTime = timer();
     options = options || {};
     cache = {};
     for(var a in attr) cache[a] = attr[a];
@@ -426,6 +433,7 @@
     if(cache.line && cache.line.innerHTML)
       cache.codeArea.appendChild(cache.line.parentNode);
     div.appendChild(cache.codeArea);
+    div.elapsedTime = timer() - startTime;
     element.parentNode.replaceChild(div, element);
   }
 
@@ -454,23 +462,26 @@
     p: 2
   };
 
-  for(var lang in LANG) {
-    LANG[lang].syntax = create_syntax(lang);
-    LANG[lang].lexers = (function(SYNTAX) {
-      var ret = [];
-      for(var rule in COMMON) ret.push(COMMON[rule]);
-      for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
-      ret[-1] = { p: -1 }; // just a hack
-      ret.push(Scopes.nominal);
-      return ret;
-    })(LANG[lang].syntax);
+  window.highlight = function() {
+    for(var lang in LANG) {
+      LANG[lang].syntax = create_syntax(lang);
+      LANG[lang].lexers = (function(SYNTAX) {
+        var ret = [];
+        for(var rule in COMMON) ret.push(COMMON[rule]);
+        for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
+        ret[-1] = { p: -1 }; // just a hack
+        ret.push(Scopes.nominal);
+        return ret;
+      })(LANG[lang].syntax);
 
-    var snippets = document.getElementsByClassName(lang);
+      var snippets = document.getElementsByClassName(lang);
 
-    while(snippets.length) {
-      var code = snippets[0];
-      var options  = {lineno: 1||code.attributes['lineno'] };
-      create_highlighted_code(code, LANG[lang], options);
+      while(snippets.length) {
+        var code = snippets[0];
+        var options  = {lineno: 1||code.attributes['lineno'] };
+        create_highlighted_code(code, LANG[lang], options);
+      }
     }
-  }
+  };
+  //document.addEventListener('DOMContentLoaded', window.highlight, false )
 })();
