@@ -44,27 +44,31 @@ case class None[T] extends Option[T] {
   override def flatMap(f: T => Option[U]):Option[U] = new None[U]
 }
 
-/* A simple evaluator */
+/* A simple interpreter with counter */
 
-type Value = Double
-type Env   = M[Option[Value]]
-
-def showM[A](m: M[A]) = "Value: " + m.a + "; Counter: " + m.e(0)
-
-// Monad template
+// a general Monad template
 case class M[+A](a: A, e: Env => Env) {
   private def bind(f: A => M[B]): M[B] = {
     val fa = f(a)
     M(fa.a, env => fa.e(e(env)))
   }
-  def unitM(a: A) = M(a, env => env)
   def map(f: A => B): M[B] = bind(x => unitM(f(x)))
   def flatMap(f: A => M[B]): M[B] = bind(f)
+
+  override def toString = showM(this)
 }
 
-val tickS = M(0, e => e + 1)
+def unitM(a: A) = M(a, env => env)
 
-def add(a: Env, b: Env): Env =
+def showM[A](m: M[A]) = "Value: " + m.a + "; Counter: " + m.e(0)
+
+type Env   = Int
+type Value = Double
+type MV    = M[Option[Value]]
+
+val tickS = M(0, e => e + 1) // a counter monad
+
+def add(a: MV, b: MV): MV =
   for {
     _  <- tickS
     aa <- a
@@ -75,7 +79,7 @@ def add(a: Env, b: Env): Env =
     } yield a + b     // yield None if aa is None or bb is None
   } yield c
 
-def div(a: Env, b: Env): Env =
+def div(a: MV, b: MV): MV =
   for {
     _  <- tickS
     aa <- a
