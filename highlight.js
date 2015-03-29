@@ -59,7 +59,7 @@
                   text = text.slice(pos);
                   var onelineFunc = /^[^(){};\n]*[ \n]*=[ \n]*([^ \n>])/;
                   var res2 = onelineFunc.exec(text);
-                  if(!res2) Scopes.destroy(false);
+                  if(!res2 && !/^(object|trait|class)$/.test(res[1])) Scopes.destroy(false);
                   if(res2 && res2[1]!='{') {
                     var pos2 = text.indexOf("\n", res2[0].length);
                     parse(text.substring(0, pos2));
