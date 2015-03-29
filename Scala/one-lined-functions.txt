@@ -1,0 +1,9 @@
+def foldLeft(z: A)(op: (A, A) => A)
+
+def op2(a: Int, b: Int) = a + b;
+
+def reduceOption[A1 >: A](op1: (A1, A1) => A1)(op2: (A1, A1) => A1): Option[A1] = reduceLeftOption(op1)(op2)
+
+def fold[A1 >: A](z: A1)(op1: (A1, A1) => A1): A1 = foldLeft(z)(op1)(op2)
+
+def aggregate[B](z: =>B)(seqop: (B, A) => B, combop: (B, B) => B): B = foldLeft(z)(seqop)(combop)

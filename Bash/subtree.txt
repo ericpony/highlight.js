@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+# Author:  ericpony
+# License: MIT
+# Repo:    https://github.com/ericpony/shell
+
+script_name=./$(basename $0)
+
+function show_usage {
+  echo "usage: $script_name ACTION (ARGS...)
+ Actions                       Arguments
+ -------  -----------------------------------------------------
+  init    (root_git)
+  create  subtree-name subtree-dir subtree-git (subtree-branch)
+  update  subtree-name subtree-dir
+  push    subtree-name/ALL" 1>&2
+  exit 1
+}
+function branch_exists  {  [[ -n $(git branch | grep "\b$1\b") ]];     }
+function remote_exists  {  [[ -n $(git remote -v | grep "^$1\b") ]];   }
+function current_branch {  git branch | grep '^[^ ]' | sed 's/^. *//'; }
+function subtree {
+
+  local action=$1
+  shift
+
+  case $action in
+    init)
+      if [[ ! -d .git ]]; then
+        git init
+        echo > README.md
+        git add README.md || exit 1
+        git commit -m 'create repository' || exit 1
+      fi
+      [[ -n $1 ]] && ( git remote add origin "$1" || exit 1 )
+      ;;
+
+    create)
+      if [[ ! -d .git ]]; then
+        echo "[error] Please create repository first using '$script_name init REMOTE-GIT'" 1>&2
+        exit 1
+      fi
+      [[ $# -lt 3 ]] && show_usage
+      project_name=$1
+      project_dir=$2
+      project_git=$3
+      project_branch=$4
+      root_branch=$(current_branch)
+
+      [[ -z $project_branch ]] && project_branch=master
+
+      git checkout "$root_branch" || exit 1
+
+      # add the project as a remote reference in your own project
+      remote_exists "$project_name" && git remote rm "$project_name"
+
+      git remote add -f "$project_name" "$project_git" || exit 1
+
+      # check out the project into its own branch
+      git checkout -b "$project_name" "$project_name/$project_branch" || exit 1
+
+      # switch back to root branch
+      git checkout "$root_branch" || exit 1
+
+      # read remote project to local project directory
+      echo "git read-tree --prefix='$project_dir' -u '$project_name/$project_branch'" | bash || exit 1
+
+      # record the merge result
+      git commit -m 'Create sub-repository "'$project_name'"' || exit 1
+
+      #subtree update "$project_name"
+
+      #subtree push "$project_name"
+      ;;
+
+    update)
+      [[ $# -lt 1 ]] && show_usage
+      project_name=$1
+      root_branch=$(current_branch)      
+
+      git checkout "$project_name" || exit 1
+      git pull || exit 1
+
+      git checkout "$root_branch" || exit 1
+      git merge --squash -s subtree --no-commit "$project_name" || exit 1
+      # or if you want to merge the histories together:
+      # git merge -s ours --no-commit $project_name
+
+      git commit -a -m 'Update sub-repository "'$project_name'"'
+      ;;
+
+    push)
+      [[ $# -lt 1 ]] && show_usage
+      project_name=$1
+      root_branch=$(current_branch)
+
+      if [[ $project_name = ALL ]]; then
+        for project_name in $(git branch | grep -o "\b[^\*][^ ]*\b"); do
+          subtree push "$project_name"
+          echo 1>&2
+        done
+      else
+        echo "[info] Pushing '$project_name' to origin..." 1>&2
+        remote_exists origin &&
+        branch_exists "$project_name" &&
+        git checkout "$project_name" 2>/dev/null &&
+        git push origin "$project_name"
+
+        if [[ ! $? -eq 0 ]]; then
+          echo "[error] Cannot push '$project_name' to origin." 1>&2
+          exit 1
+        fi
+        # switch back to root branch
+        git checkout "$root_branch" 2>/dev/null || exit 1 
+      fi
+      ;;
+
+    *)
+      show_usage
+      ;;
+  esac
+}
+
+subtree "$1" "$2" "$3" "$4" "$5" "$6" "$7"

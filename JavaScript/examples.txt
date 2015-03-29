@@ -1,0 +1,83 @@
+// tracking variables inside nested closures
+function sum(p1, p2) {
+  function first() { return p1 }
+  function second() { return p2 }
+  function sum() { return first() + second() }
+  function sum(p1, p2) { return p1 + p2 }
+  return p1 + p2;
+};
+
+// tracking variables inside a map
+var obj = {
+  foo: function(obj) { return obj },
+  goo: function() { return obj },
+};
+
+/* general demonstrations */
+
+function ObjectFactory(ctor) {
+  var obj = {};
+  return function() {
+    if(typeof ctor.prototype === 'number')
+      obj.__proto__ =  Object.prototype;
+    else
+      obj.__proto__ =  ctor.prototype;
+    var ret = ctor.apply(obj, arguments);
+    return typeof ret == 'object' ? ret : obj;
+  }
+}
+function Point(x, y) { this.x = x; this.y = y }
+
+var p1 = ObjectFactory(Point)(0, 0); // equivalent to: var p1 = new Point(0, 0)
+
+var Observer = (function() {
+  var listeners = [];
+  return {
+    listen:  function(callback) { listeners.push(callback) },
+    trigger: function(res) { listeners.forEach(function(fn) { fn(res) }) },
+    observe: function(act) { this.trigger(act()) },
+  };
+})();
+
+Function.prototype.bind = function (scope) { // a helper function
+    var fn = this;
+    return function () {
+        return fn.apply(scope);
+    };
+}
+/* MethodProfiler class */
+var MethodProfiler = function(obj) {
+  this.obj = obj;
+  this.timers = {};
+  for(var key in obj) {
+    if(typeof obj[key] !== 'function') continue;
+    (function(method) {
+      this[method] = function() {
+        this.tick(method);
+        var ret = obj[method].apply(obj, arguments);
+        this.log(method, this.getElapsedTime(method));
+        return ret;
+      }.bind(this);
+    }.bind(this))(key); 
+  }
+};
+MethodProfiler.prototype = {
+  tick: function(method) {
+    this.timers[method] = (new Date()).getTime();
+  },
+  getElapsedTime: function(method) {
+    return (new Date()).getTime() - this.timers[method];
+  },
+  log: function(method, time) {
+    console.log('Elapsed time of executing ' + method + ' is ' + time + ' ms');
+  }
+};
+
+// Demonstration of usage
+var target = { foo: function() { alert('hi there') } };
+
+// create a profiling decorator of object target
+var profiler = new MethodProfiler(target);
+
+// execute target.foo() and print elapsed time
+profiler.foo(); 

@@ -1,0 +1,14 @@
+def using[A <: {def close(): Unit}, B](res: A)(op: A => B):
+  B = try op(res) finally res.close
+
+def writeToFile(path: String, data: String): Unit =
+  using(new BufferedWriter(new OutputStreamWriter(
+    new FileOutputStream(path), "UTF-8")))(_.write(data))
+
+def appendToFile(path: String, data: String): Unit =
+  using(new BufferedWriter(new OutputStreamWriter(
+    new FileOutputStream(path, true), "UTF-8")))(_.write(data))
+
+def printToFile(path: String)(op: PrintWriter => Unit): Unit =
+  using(new PrintWriter(new BufferedWriter(new OutputStreamWriter(
+    new FileOutputStream(path), "UTF-8"))))(op)
