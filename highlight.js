@@ -45,6 +45,7 @@
                 var res = regex.exec(text);
                 if(!res) return null;
                 var fun = function() {
+                  // handle signatures
                   var depth = 0, pos = this.parse(text, res.index + res[0].length, '[', ']');
                   while(true) {
                     var p = this.parse(text, pos, '(', ')', depth++ == 0);
@@ -52,6 +53,18 @@
                       break;
                     else
                       pos = p;
+                  }
+                  // a hack dealing with functions without braces, e.g.,
+                  // def add(a: Int, b: Int): Int = a + b
+                  text = text.slice(pos);
+                  var onelineFunc = /^[^(){};\n]*[ \n]*=[ \n]*([^ \n>])/;
+                  var res2 = onelineFunc.exec(text);
+                  if(!res2) Scopes.destroy(false);
+                  if(res2 && res2[1]!='{') {
+                    var pos2 = text.indexOf("\n", res2[0].length);
+                    parse(text.substring(0, pos2));
+                    this.lastIndex = pos + pos2;
+                    Scopes.destroy(false);
                   }
                   this.lastIndex = Math.max(pos, this.lastIndex);
                 }.bind(this);
@@ -62,9 +75,9 @@
               }
             };
           })(),
-//        newline:  { r: /\n/g, css: '', p: 0 },
-          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+//          newline:  { r: null,                   css: '',              p:0 },
+          comment:  { r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: { r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
         paramlist_regex: ''
     },
@@ -124,7 +137,7 @@
     {r: /[{}]/g,                css: '',              p:0 }
   ];
 
-  var cache;
+  var cache, debug_mode;
 
   var create_link = (function() {
     function lighten(name, on) {
@@ -292,6 +305,7 @@
           span.textContent = lines[i];
           cache.line.appendChild(span);
         }
+        if(debug_mode) console.log(cache.line.innerText);
       }
       if(i+1 < lines.length) {
         // FF need insert '&nbsp;' to make empty <li> displayed
@@ -357,7 +371,7 @@
       }else {
         colorize(tokens[ii][1], lexers[ii].css, lexers[ii].style);
       }
-      if(last_index == lexers[ii].r.lastIndex) { throw new Error('[highlight.js] Detect an infinite loop!'); }
+      if(last_index == lexers[ii].r.lastIndex) { throw new Error('highlight.js detects an infinite loop!'); }
       last_index = lexers[ii].r.lastIndex;
       attr = undefined;
     }// end of while
