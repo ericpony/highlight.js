@@ -462,7 +462,11 @@
     p: 2
   };
 
-  window.highlight = function() {
+  /**
+   * Supported options:
+   *  lineno: whether to enable line numbering
+   */
+  window.highlight = function(options) {
     for(var lang in LANG) {
       LANG[lang].syntax = create_syntax(lang);
       LANG[lang].lexers = (function(SYNTAX) {
@@ -478,7 +482,6 @@
 
       while(snippets.length) {
         var code = snippets[0];
-        var options  = {lineno: 1||code.attributes['lineno'] };
         create_highlighted_code(code, LANG[lang], options);
       }
     }
