@@ -8,7 +8,7 @@ An experimental regex-based syntax highlighter that supports simple variable tra
 - [Examples](http://ericpony.github.io/highlight.js/example.html?lang=JavaScript&name=examples)
 
 ### Scala
-- [Monadic interpreter](http://ericpony.github.io/highlight.js/example.html?lang=Scala&name=monadic-interpreter)
+- [Monads](http://ericpony.github.io/highlight.js/example.html?lang=Scala&name=monads)
 - [Structural types](http://ericpony.github.io/highlight.js/example.html?lang=Scala&name=structural-types) 
 - [One-lined functions](http://ericpony.github.io/highlight.js/example.html?lang=Scala&name=one-lined-functions)
 - [MlLib Random RDD](http://ericpony.github.io/highlight.js/example.html?lang=Scala&name=spark-mllid-randomrdd)
