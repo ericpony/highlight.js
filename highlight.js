@@ -56,15 +56,20 @@
                   }
                   // a hack dealing with functions without braces, e.g.,
                   // def add(a: Int, b: Int): Int = a + b
-                  text = text.slice(pos);
-                  var onelineFunc = /^[^(){};\n]*[ \n]*=[ \n]*([^ \n>])/;
-                  var res2 = onelineFunc.exec(text);
-                  if(!res2 && !/^(object|trait|class)$/.test(res[1])) Scopes.destroy(false);
-                  if(res2 && res2[1]!='{') {
-                    var pos2 = text.indexOf("\n", res2[0].length);
-                    parse(text.substring(0, pos2));
-                    this.lastIndex = pos + pos2;
-                    Scopes.destroy(false);
+                  var text2 = text.slice(pos);
+                  var onelineFunc = /^[^(){};\n]*[ \n]*(=?)[ \n]*([^ \n])/;
+                  var res2 = onelineFunc.exec(text2);
+
+                  if(res2 && res2[2]!='{') {
+                    if(res[1]=='def') {
+                      var pos2 = text2.indexOf("\n", res2[0].length-2);
+                      parse(text2.substring(0, pos2));
+                      this.lastIndex = Math.max(this.lastIndex, pos + pos2);
+                      Scopes.destroy(false);
+                    }else
+                    if(/^(object|trait|class)$/.test(res[1])) {
+                      Scopes.destroy(false);
+                    }
                   }
                   this.lastIndex = Math.max(pos, this.lastIndex);
                 }.bind(this);
@@ -137,7 +142,7 @@
     {r: /[{}]/g,                css: '',              p:0 }
   ];
 
-  var cache, debug_mode;
+  var cache, debug_mode=1;
 
   function timer() {
     if(performance) return performance.now();
@@ -224,8 +229,9 @@
 
   var Scopes = (function() {
     var _stack = [];
+    var _counter = 0;
     var _lang;
-    function gen_id() { return Math.random().toString().substr(2,4) }
+    function gen_id() { return (_counter++).toString() }
     return {
       id:      gen_id(),
       reset:   function(lang) { _lang = lang; _stack = []; this.create(true); return this },
