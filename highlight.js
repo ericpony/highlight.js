@@ -94,7 +94,41 @@
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,
           comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
           comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
-        },
+          self_ref: (function (){
+            var regex = /\b([$\w]+)\.([$\w]+)/g;
+            return {
+              css: STYLE.keyword,
+              update: create_nominal,
+              p: 1,
+              r: {
+                lastIndex: 0,
+                exec: function(text) {
+                  regex.lastIndex = this.lastIndex;
+                  var res = regex.exec(text);
+                  this.lastIndex = regex.lastIndex;
+                  if(!res) return null;
+                  var fun = function() {
+                    var scope = Scopes.current();
+                    if(res[1] == 'this') {
+                      if(!Scopes.lookup(res[1], scope))
+                        colorize(res[1], STYLE.keyword);
+                      else
+                        Scopes.nominal.update([res[1]], scope);
+                      scope = scope.parent || scope;
+                    }else {
+                      Scopes.nominal.update([res[1]], scope);
+                    }
+                    colorize('.');
+                    Scopes.nominal.update([res[2]], scope);
+                  };
+                  var ret = ['', '', '', fun];
+                  ret.index = res.index;
+                  return ret;
+                }
+              }
+            }
+          })(),
+        }, // end of regex
         paramlist_regex: /([$\w]+)([^,]*,?\W*)/g,
     },
     'Bash': {
@@ -255,12 +289,15 @@
           }
           this.destroy(false);
         }
-        _stack.push({ id: this.id + '-' + gen_id(), is_enclosed: is_enclosed, nominals: {}, nominal_regex: '' });
+        _stack.push({ id: this.id + '-' + gen_id(), is_enclosed: is_enclosed, nominals: {}, nominal_regex: '', parent: scope });
       },
-      lookup:  function(name) {
+      lookup:  function(name, scope) {
         if(name[0] == '.') return;
-        for(var i=_stack.length-1; i>=0; i--)
-          if(_stack[i].nominals[name]) return _stack[i];
+        if(!scope) scope = this.current();
+        while(scope) {
+          if(scope.nominals[name]) return scope;
+          scope = scope.parent;
+        }
       },
       add_nominal: function(name) {
         var scope = this.current();
@@ -445,8 +482,8 @@
 
   Scopes.nominal = {
     css:    STYLE.nominal,
-    update: function(nominals) {
-      var scope = Scopes.lookup(nominals[0]);
+    update: function(nominals, scope) {
+      var scope = Scopes.lookup(nominals[0], scope);
       //if(!scope) return create_nominal(nominals);
       if(!scope) { colorize(nominals[0]); return false }
       var name = 'r' + scope.id + '-' + nominals[0];

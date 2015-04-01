@@ -11,6 +11,10 @@ function sum(p1, p2) {
 var obj = {
   foo: function(obj) { return obj },
   goo: function() { return obj },
+  woo: function() {
+    function foo(obj) { return obj; }
+    return this.foo("hello") + foo("world");
+  }
 };
 
 /* general demonstrations */
