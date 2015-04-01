@@ -35,7 +35,7 @@
                 while(text[pos] == ' '){ spaces+=' '; pos++; }
                 colorize(spaces);
                 if(text[pos]==begin_mark) {
-                  if(createScope) Scopes.create(false);
+                  if(createScope) Scopes.create(false, true);
                   return parse_block(text, pos, begin_mark, end_mark);
                 }else
                   return pos;
@@ -95,7 +95,7 @@
           comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
           comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
           self_ref: (function (){
-            var regex = /\b([$\w]+)\.([$\w]+)/g;
+            var regex = /\bthis\.([$\w]+)/g;
             return {
               css: STYLE.keyword,
               update: create_nominal,
@@ -108,18 +108,13 @@
                   this.lastIndex = regex.lastIndex;
                   if(!res) return null;
                   var fun = function() {
-                    var scope = Scopes.current();
-                    if(res[1] == 'this') {
-                      if(!Scopes.lookup(res[1], scope))
-                        colorize(res[1], STYLE.keyword);
-                      else
-                        Scopes.nominal.update([res[1]], scope);
-                      scope = scope.parent || scope;
-                    }else {
-                      Scopes.nominal.update([res[1]], scope);
-                    }
+                    colorize('this', STYLE.keyword);
                     colorize('.');
-                    Scopes.nominal.update([res[2]], scope);
+                    var scope = Scopes.current();
+                    if(scope.parent && !scope.parent.is_function)
+                      Scopes.nominal.update([res[1]], scope.parent);
+                    else
+                      colorize(res[1]);
                   };
                   var ret = ['', '', '', fun];
                   ret.index = res.index;
@@ -223,7 +218,7 @@
       }
       var paramlist = nominals[i].slice(1, -1);
       colorize('(');
-      Scopes.create(false);
+      Scopes.create(false, true);
       if(paramlist) { // is nonempty
         var paramlist_rule = cache.paramlist_regex;
         if(!paramlist_rule)
@@ -268,7 +263,7 @@
     function gen_id() { return (_counter++).toString() }
     return {
       id:      gen_id(),
-      reset:   function(lang) { _lang = lang; _stack = []; this.create(true); return this },
+      reset:   function(lang) { _lang = lang; _stack = []; this.create(true, true); return this },
       current: function() { return _stack[_stack.length-1] },
       destroy: function(is_enclosed) {
         if(is_enclosed)
@@ -280,16 +275,24 @@
         if(!this.current()) debugger;
         this.update_nominals();
       },
-      create:  function(is_enclosed) {
+      create:  function(is_enclosed, is_function) {
         var scope = this.current();
         if(scope && !scope.is_enclosed) {
           if(is_enclosed) {
             scope.is_enclosed = true;
+            scope.is_function = true;
             return;
           }
           this.destroy(false);
         }
-        _stack.push({ id: this.id + '-' + gen_id(), is_enclosed: is_enclosed, nominals: {}, nominal_regex: '', parent: scope });
+        _stack.push({
+          id: this.id + '-' + gen_id(),
+          nominals: {},
+          nominal_regex: '',
+          is_enclosed: is_enclosed,
+          is_function: is_function,
+          parent: scope
+        });
       },
       lookup:  function(name, scope) {
         if(name[0] == '.') return;
