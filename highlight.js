@@ -35,7 +35,7 @@
                 while(text[pos] == ' '){ spaces+=' '; pos++; }
                 colorize(spaces);
                 if(text[pos]==begin_mark) {
-                  if(createScope) Scopes.create(false);
+                  if(createScope) Scopes.create(false, true);
                   return parse_block(text, pos, begin_mark, end_mark);
                 }else
                   return pos;
@@ -56,15 +56,20 @@
                   }
                   // a hack dealing with functions without braces, e.g.,
                   // def add(a: Int, b: Int): Int = a + b
-                  text = text.slice(pos);
-                  var onelineFunc = /^[^(){};\n]*[ \n]*=[ \n]*([^ \n>])/;
-                  var res2 = onelineFunc.exec(text);
-                  if(!res2 && !/^(object|trait|class)$/.test(res[1])) Scopes.destroy(false);
-                  if(res2 && res2[1]!='{') {
-                    var pos2 = text.indexOf("\n", res2[0].length);
-                    parse(text.substring(0, pos2));
-                    this.lastIndex = pos + pos2;
-                    Scopes.destroy(false);
+                  var text2 = text.slice(pos);
+                  var onelineFunc = /^[^(){};\n]*[ \n]*(=?)[ \n]*([^ \n])/;
+                  var res2 = onelineFunc.exec(text2);
+
+                  if(res2 && res2[2]!='{') {
+                    if(res[1]=='def') {
+                      var pos2 = text2.indexOf("\n", res2[0].length-2);
+                      parse(text2.substring(0, pos2));
+                      this.lastIndex = Math.max(this.lastIndex, pos + pos2);
+                      Scopes.destroy(false);
+                    }else
+                    if(/^(object|trait|class)$/.test(res[1])) {
+                      Scopes.destroy(false);
+                    }
                   }
                   this.lastIndex = Math.max(pos, this.lastIndex);
                 }.bind(this);
@@ -89,7 +94,36 @@
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,
           comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
           comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
-        },
+          self_ref: (function (){
+            var regex = /\bthis\.([$\w]+)/g;
+            return {
+              css: STYLE.keyword,
+              update: create_nominal,
+              p: 1,
+              r: {
+                lastIndex: 0,
+                exec: function(text) {
+                  regex.lastIndex = this.lastIndex;
+                  var res = regex.exec(text);
+                  this.lastIndex = regex.lastIndex;
+                  if(!res) return null;
+                  var fun = function() {
+                    colorize('this', STYLE.keyword);
+                    colorize('.');
+                    var scope = Scopes.current();
+                    if(scope.parent && !scope.parent.is_function)
+                      Scopes.nominal.update([res[1]], scope.parent);
+                    else
+                      colorize(res[1]);
+                  };
+                  var ret = ['', '', '', fun];
+                  ret.index = res.index;
+                  return ret;
+                }
+              }
+            }
+          })(),
+        }, // end of regex
         paramlist_regex: /([$\w]+)([^,]*,?\W*)/g,
     },
     'Bash': {
@@ -137,7 +171,7 @@
     {r: /[{}]/g,                css: '',              p:0 }
   ];
 
-  var cache, debug_mode;
+  var cache, debug_mode=1;
 
   function timer() {
     if(performance) return performance.now();
@@ -184,7 +218,7 @@
       }
       var paramlist = nominals[i].slice(1, -1);
       colorize('(');
-      Scopes.create(false);
+      Scopes.create(false, true);
       if(paramlist) { // is nonempty
         var paramlist_rule = cache.paramlist_regex;
         if(!paramlist_rule)
@@ -224,11 +258,12 @@
 
   var Scopes = (function() {
     var _stack = [];
+    var _counter = 0;
     var _lang;
-    function gen_id() { return Math.random().toString().substr(2,4) }
+    function gen_id() { return (_counter++).toString() }
     return {
       id:      gen_id(),
-      reset:   function(lang) { _lang = lang; _stack = []; this.create(true); return this },
+      reset:   function(lang) { _lang = lang; _stack = []; this.create(true, true); return this },
       current: function() { return _stack[_stack.length-1] },
       destroy: function(is_enclosed) {
         if(is_enclosed)
@@ -240,21 +275,32 @@
         if(!this.current()) debugger;
         this.update_nominals();
       },
-      create:  function(is_enclosed) {
+      create:  function(is_enclosed, is_function) {
         var scope = this.current();
         if(scope && !scope.is_enclosed) {
           if(is_enclosed) {
             scope.is_enclosed = true;
+            scope.is_function = true;
             return;
           }
           this.destroy(false);
         }
-        _stack.push({ id: this.id + '-' + gen_id(), is_enclosed: is_enclosed, nominals: {}, nominal_regex: '' });
+        _stack.push({
+          id: this.id + '-' + gen_id(),
+          nominals: {},
+          nominal_regex: '',
+          is_enclosed: is_enclosed,
+          is_function: is_function,
+          parent: scope
+        });
       },
-      lookup:  function(name) {
+      lookup:  function(name, scope) {
         if(name[0] == '.') return;
-        for(var i=_stack.length-1; i>=0; i--)
-          if(_stack[i].nominals[name]) return _stack[i];
+        if(!scope) scope = this.current();
+        while(scope) {
+          if(scope.nominals[name]) return scope;
+          scope = scope.parent;
+        }
       },
       add_nominal: function(name) {
         var scope = this.current();
@@ -439,8 +485,8 @@
 
   Scopes.nominal = {
     css:    STYLE.nominal,
-    update: function(nominals) {
-      var scope = Scopes.lookup(nominals[0]);
+    update: function(nominals, scope) {
+      var scope = Scopes.lookup(nominals[0], scope);
       //if(!scope) return create_nominal(nominals);
       if(!scope) { colorize(nominals[0]); return false }
       var name = 'r' + scope.id + '-' + nominals[0];
