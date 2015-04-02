@@ -22,10 +22,9 @@
           type:      /\b[$_]*[A-Z][$\w]*\b/g,
           keyword:  'yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
           literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol, p: 0 }, // symbol literal
-          //type_ctor: /\b(?:(object|trait|class)\s+([$\w]+)([^=\n({]*)(\([^)]*\))|(object|trait|class|type)\s+([$\w]+)|()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
+          comment:  { r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: { r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
           type_ctor: /\b(?:()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
-          //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)([^=(]*)(\([^)]*\))|(val|var|def)\s+([$\w]+))/g, // ver2
-          //ref_ctor:  /\b(?:(val|var|def)\s+([$\w]+)[^=()]*(\([^)]*\))|(val|var|def)\s+([$\w]+)(?=[^()]*=)|(val|var)\s+([$\w]+)|()([$\w]+)(?=\s+<-))/g, // ver1
           ref_ctor: (function(){
             var regex = /(val|var|def|object|trait|class|type)\s+([$\w]+)/g;
             return {
@@ -57,7 +56,7 @@
                   // a hack dealing with functions without braces, e.g.,
                   // def add(a: Int, b: Int): Int = a + b
                   var text2 = text.slice(pos);
-                  var onelineFunc = /^[^(){};\n]*[ \n]*(=?)[ \n]*([^ \n])/;
+                  var onelineFunc = /^[^(){};\n=]*[ \n]*(=?)[ \n]*([^ \n])/;
                   var res2 = onelineFunc.exec(text2);
 
                   if(res2 && res2[2]!='{') {
@@ -79,10 +78,7 @@
                 return ret;
               }
             };
-          })(),
-//          newline:  { r: null,                   css: '',              p:0 },
-          comment:  { r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-          comments: { r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+          })()
         },
         paramlist_regex: ''
     },
@@ -263,8 +259,12 @@
     function gen_id() { return (_counter++).toString() }
     return {
       id:      gen_id(),
-      reset:   function(lang) { _lang = lang; _stack = []; this.create(true, true); return this },
       current: function() { return _stack[_stack.length-1] },
+      reset:   function(lang) {
+        _lang = lang;
+        _stack = [];
+        this.create(true, true);
+      },
       destroy: function(is_enclosed) {
         if(is_enclosed)
           while(!_stack.pop().is_enclosed);
@@ -406,13 +406,9 @@
       colorize(text.slice(last_index, pos));  // generate plaintext for text[last_index...pos-1]
 
       if(!tokens[ii][0]) {
-        if(tokens[ii][1] == '{') {
-          Scopes.create(true);
-        }else if(tokens[ii][1] == '}') {
-          Scopes.destroy(true);
-//        }else if(tokens[ii][1] == '\n') {
-//          Scopes.destroy(false);
-        }
+        if(tokens[ii][1] == '{') Scopes.create(true);
+        else
+        if(tokens[ii][1] == '}') Scopes.destroy(true);
       }else {
         colorize(tokens[ii][0], STYLE.keyword);
         colorize(' ');
