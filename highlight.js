@@ -22,6 +22,8 @@
           type:      /\b[$_]*[A-Z][$\w]*\b/g,
           keyword:  'yield lazy override with false true sealed abstract private null if for while throw finally protected extends import final return else break new catch super class case package default try this match continue throws implicitly implicit _[\\d]+',
           literal:  { r: /\b'[a-zA-Z_$][\w$]*(?!['$\w])\b/g, css: STYLE.symbol, p: 0 }, // symbol literal
+          comment:  { r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: { r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
           type_ctor: /\b(?:()([\w$]+)(?=\s*:)|()([$\w]+)(?=\s*<-))/g,
           ref_ctor: (function(){
             var regex = /(val|var|def|object|trait|class|type)\s+([$\w]+)/g;
@@ -54,7 +56,7 @@
                   // a hack dealing with functions without braces, e.g.,
                   // def add(a: Int, b: Int): Int = a + b
                   var text2 = text.slice(pos);
-                  var onelineFunc = /^[^(){};\n]*[ \n]*(=?)[ \n]*([^ \n])/;
+                  var onelineFunc = /^[^(){};\n=]*[ \n]*(=?)[ \n]*([^ \n])/;
                   var res2 = onelineFunc.exec(text2);
 
                   if(res2 && res2[2]!='{') {
@@ -76,9 +78,7 @@
                 return ret;
               }
             };
-          })(),
-          comment:  { r: /\/\/.*$/gm,            css: STYLE.comment,   p:1 },
-          comments: { r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:1 },
+          })()
         },
         paramlist_regex: ''
     },
@@ -88,8 +88,8 @@
           keyword:   'new in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,
-          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:1 },
-          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:1 },
+          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
           self_ref: (function (){
             var regex = /\bthis\.([$\w]+)/g;
             return {
@@ -129,7 +129,7 @@
         ref_ctor: /\b(?:()(\S+)(?==)|(function)\b\s*([$\w]*))/g,
         param1:  { r: /--\w\S+/g,     style: {color: '#393'},   p:0 },
         param2:  { r: /-\S+/g,        style: {color: '#099'},   p:0 },
-        comment: { r: /#.*/g,         style: {color: 'gray'},   p:1 },
+        comment: { r: /#.*/g,         style: {color: 'gray'},   p:0 },
         posvar:  { r: /\$[\d?!#]+/g,  css: STYLE.nominal,       p:0 },
         varsign: { r: /\$(?=\w)/g,    css: STYLE.nominal,       p:0 },
       },
@@ -140,8 +140,8 @@
           type:      'int float char boolean void long short double String null',
           keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
           type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
-          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:1 },
-          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:1 },
+          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
         paramlist_regex: ''
     },
@@ -150,8 +150,8 @@
         type_ctor: '',
         type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
         keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
-        comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:1 },
-        comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:1 },
+        comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+        comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         macro:    {r: /^ *#.*/gm,             css: STYLE.macro,     p:0 },
       },
       paramlist_regex: ''
