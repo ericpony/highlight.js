@@ -1,28 +1,3 @@
-/* code  */
-code, .inliine-code {
-   font-family: Courier, Consolas ,Menlo, Monaco, Lucida Console, "Liberation Mono", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Courier New", monospace, serif;
-   font-size: .9em;
-}
-.x-post h1 { font-size: 100%; }
-.x-post h2 { 
-   border-bottom: 1px solid #aaaaaa;
-   font-size: 130%; color: gray;
-   padding-bottom: 0.1em;
-}
-
-div.paragraph { 
-   xfont-family: Times, Times New Roman, serif; 
-   xpadding-top: 0.6em;
-   margin-bottom: 2em;
-   font-size: x140%;
-}
-div.xheader {
-   clear: left;
-   padding: 0.5em;
-   background-color: #f9f9f9;
-   border: 1px solid #aaaaaa;
-}
-
 .sh {
 	display: block;
 	overflow: visible;
