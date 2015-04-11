@@ -1,13 +1,3 @@
-/* code  */
-@font-face {
-    font-family: Inconsolata;
-    src: url(http://www.levien.com/type/myfonts/Inconsolata.otf);
-}
-.inline-code {
-font-family: Inconsolata, Consolas, "Lucida Console", "Courier New";
-font-size: 19px;
-}
-code { background-color: #FFFFFF; }
 .sh {
     display: block;
     overflow: visible;
