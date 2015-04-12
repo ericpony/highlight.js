@@ -8,6 +8,7 @@
     string:   'string',
     comment:  'comment',  // single line
     comments: 'comments', // block
+    regexp:   'regex',
     character:'char',
     hex_value:'hex',
     numeric:  'value',
@@ -88,8 +89,9 @@
           keyword:   'new in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,
-          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+          comment:  {r: /\/\/.*$/gm,                   css: STYLE.comment,   p:0 },
+          comments: {r: /\/\*[\s\S]*?\*\//gm,          css: STYLE.comments,  p:0 },
+          reg_expr: { r: /\/(?:\\.|[^\/])+\/[a-z]*/g,  css: STYLE.regexp,    p:0 },
           self_ref: (function (){
             var regex = /\bthis\.([$\w]+)/g;
             return {
@@ -160,8 +162,8 @@
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
 
   var COMMON = [
-    {r: /"[^"]*"/g,             css: STYLE.string,    p:0 },
-    {r: /'[^']*'/g,             css: STYLE.character, p:0 },
+    {r: /"(?:\\.|[^"])*"/g,     css: STYLE.string,    p:0 },
+    {r: /'(?:\\.|[^'])*'/g,     css: STYLE.character, p:0 },
     {r: /0[xX][\da-fA-F]+/g,    css: STYLE.hex_value, p:0 },
     {r: /\b\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric,   p:0 },
     {r: /[{}]/g,                css: '',              p:0 }
@@ -169,11 +171,18 @@
 
   var cache, debug_mode=1;
 
+  function extend(origin, more) {
+    if(!origin || !more) return origin;
+    for(var name in more)
+      if(more.hasOwnProperty(name)) origin[name] = more[name];
+    return origin;
+  }
   function timer() {
-    if(performance) return performance.now();
+    if(performance && performance.now) return performance.now();
     if(Date.now) return Date.now();
     return new Date().getTime()*1000;
   }
+  Object.prototype.extendWith = function(more){ return extend(this, more) }
 
   var create_link = (function() {
     function lighten(name, on) {
@@ -342,7 +351,7 @@
         }else {
           var span = document.createElement('SPAN');
           if(css) span.className = css;
-          if(style) for(var name in style) span.style[name] = style[name];
+          if(style) span.style.extendWith(style);
           if(attr) {
             if(attr.name) {
               var anchor = document.createElement('A');
@@ -352,7 +361,7 @@
               anchor.appendChild(span);
               span = anchor;
             }
-            for(var a in attr) span[a] = attr[a];
+            span.extendWith(attr);
           }
           span.textContent = lines[i];
           cache.line.appendChild(span);
@@ -453,11 +462,13 @@
   function create_highlighted_code(element, attr, options) {
     var startTime = timer();
     options = options || {};
-    cache = {};
-    for(var a in attr) cache[a] = attr[a];
-    Scopes.nominal.r = '';
+    cache = extend({}, attr);
     cache.codeArea = options['lineno'] ? document.createElement('OL') : document.createElement('UL');
-    Scopes.reset();
+
+    if(!options['dont-reset']) {
+      Scopes.nominal.r = '';
+      Scopes.reset();
+    }
     //var text = element.textContent
                //.replace(/&lt;/g,   '<')
                //.replace(/&gt;/g,   '>')
@@ -510,11 +521,14 @@
    */
   window.highlight = function(options) {
     for(var lang in LANG) {
+      if(!LANG.hasOwnProperty(lang)) continue;
       LANG[lang].syntax = create_syntax(lang);
       LANG[lang].lexers = (function(SYNTAX) {
         var ret = [];
-        for(var rule in COMMON) ret.push(COMMON[rule]);
-        for(var rule in SYNTAX) ret.push(SYNTAX[rule]);
+        for(var rule in COMMON)
+          if(COMMON.hasOwnProperty(rule)) ret.push(COMMON[rule]);
+        for(var rule in SYNTAX)
+          if(SYNTAX.hasOwnProperty(rule)) ret.push(SYNTAX[rule]);
         ret[-1] = { p: -1 }; // just a hack
         ret.push(Scopes.nominal);
         return ret;
@@ -523,8 +537,13 @@
       var snippets = document.getElementsByClassName(lang);
 
       while(snippets.length) {
-        var code = snippets[0];
-        create_highlighted_code(code, LANG[lang], options);
+        var code = snippets[0], opts = extend({}, options);
+        if(!!code.getAttribute('data-options')) {
+          var attr_names = code.getAttribute('data-options').split(/[\s;,]+/);
+          for(var name in attr_names)
+            if(attr_names.hasOwnProperty(name)) opts[attr_names[name]] = true;
+        }
+        create_highlighted_code(code, LANG[lang], opts);
       }
     }
   };
