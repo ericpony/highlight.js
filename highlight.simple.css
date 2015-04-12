@@ -60,9 +60,10 @@ color: black;
 .sh .code {color: darkblue; white-space: nowrap;}
 .sh .comment {color: #008200;} 
 .sh .comments {color: #008200;}
+.sh .macro {color: gray;}
+.sh .regex {color: #795da3;}
 .sh .string {color: brown;}
 .sh .char {color: brown;}
-.sh .macro {color: gray;}
 .sh .type {color: #069;}
 .sh .keyword {color: blue;}
 .sh .built-in {color: purple;}

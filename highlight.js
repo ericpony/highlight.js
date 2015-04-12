@@ -8,6 +8,7 @@
     string:   'string',
     comment:  'comment',  // single line
     comments: 'comments', // block
+    regexp:   'regex',
     character:'char',
     hex_value:'hex',
     numeric:  'value',
@@ -88,8 +89,9 @@
           keyword:   'new in if for while finally yield do return void else break catch instanceof with throw case default try this switch continue typeof delete let yield const class',
           built_in:  'eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape arguments require',
           ref_ctor:  /\b(?:(var|let)\s+([$\w]+)|(function\*?)\b\s*([$\w]*)\s*(\([^)]*\))|()([\w$]+)(?=:))/g,
-          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+          comment:  { r: /\/\/.*$/gm,                  css: STYLE.comment,   p:0 },
+          comments: { r: /\/\*[\s\S]*?\*\//gm,         css: STYLE.comments,  p:0 },
+          reg_expr: { r: /\/(?:\\.|[^\/])+\/[a-z]*/g,  css: STYLE.regexp,    p:0 },
           self_ref: (function (){
             var regex = /\bthis\.([$\w]+)/g;
             return {
@@ -140,8 +142,8 @@
           type:      'int float char boolean void long short double String null',
           keyword:   'false synchronized abstract private static if const for true while strictfp finally protected import native final enum else break transient catch instanceof byte super volatile case assert short package default public try this switch continue throws protected public private new return throw throws',
           type_ctor: /(?:\b(interface|class|extends|implements)\s+([$\w]+)|(\s+)([$\w]+)(?=\s+=\s+))/g,
-          comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-          comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
+          comment:  { r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
+          comments: { r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
         },
         paramlist_regex: ''
     },
@@ -150,9 +152,9 @@
         type_ctor: '',
         type:      'char bool short int long float double unsigned clock_t size_t va_list __int32 __int64',
         keyword:   'break case catch class const const_cast continue default delete do dynamic_cast else enum explicit extern if for friend goto inline mutable namespace new operator private public protected register reinterpret_cast return sizeof static static_cast struct switch template this throw true false try typedef typeid typename union using virtual void volatile while',
-        comment:  {r: /\/\/.*$/gm,            css: STYLE.comment,   p:0 },
-        comments: {r: /\/\*[\s\S]*?\*\//gm,   css: STYLE.comments,  p:0 },
-        macro:    {r: /^ *#.*/gm,             css: STYLE.macro,     p:0 },
+        comment:  { r: /\/\/.*$/gm,           css: STYLE.comment,   p:0 },
+        comments: { r: /\/\*[\s\S]*?\*\//gm,  css: STYLE.comments,  p:0 },
+        macro:    { r: /^ *#.*/gm,            css: STYLE.macro,     p:0 },
       },
       paramlist_regex: ''
     }
@@ -160,11 +162,11 @@
   LANG['Cpp'] = LANG['C'] = LANG['C++'];
 
   var COMMON = [
-    {r: /"[^"]*"/g,             css: STYLE.string,    p:0 },
-    {r: /'[^']*'/g,             css: STYLE.character, p:0 },
-    {r: /0[xX][\da-fA-F]+/g,    css: STYLE.hex_value, p:0 },
-    {r: /\b\d*\.?\d+[eE]?\d*/g, css: STYLE.numeric,   p:0 },
-    {r: /[{}]/g,                css: '',              p:0 }
+    { r: /"(?:\\.|[^"])*"/g,      css: STYLE.string,     p:0 },
+    { r: /'(?:\\.|[^'])*'/g,      css: STYLE.character,  p:0 },
+    { r: /0[xX][\da-fA-F]+/g,     css: STYLE.hex_value,  p:0 },
+    { r: /\b\d*\.?\d+[eE]?\d*/g,  css: STYLE.numeric,    p:0 },
+    { r: /[{}]/g,                 css: '',               p:0 }
   ];
 
   var cache, debug_mode=1;
