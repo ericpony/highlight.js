@@ -129,13 +129,14 @@
     'Bash': {
       regex: {
         keyword : 'if then else elif fi for while in do done case esac local set until true false',
-        built_in: 'break cd continue eval exec exit export getopts pwd return shift test alias trap bash',
+        built_in: 'break cd continue eval exec exit export getopts pwd return shift test alias trap bash tar wget sudo yum make git',
         ref_ctor: /\b(?:()(\S+)(?==)|(function)\b\s*([$\w]*))/g,
-        param1:  { r: /--\w\S+/g,     style: {color: '#393'},   p:0 },
-        param2:  { r: /-\S+/g,        style: {color: '#099'},   p:0 },
-        comment: { r: /#.*/g,         style: {color: 'gray'},   p:0 },
-        posvar:  { r: /\$[\d?!#]+/g,  css: STYLE.nominal,       p:0 },
-        varsign: { r: /\$(?=\w)/g,    css: STYLE.nominal,       p:0 },
+        param1:  { r: /\s--\w\S+/g,     style: {color: '#383'},   p:0 },
+        param2:  { r: /\s-\S+/g,        style: {color: '#099'},   p:0 },
+        comment: { r: /#.*/g,           style: {color: 'gray'},   p:0 },
+        posvar:  { r: /\$[\d?!#]+/g,    css: STYLE.nominal,       p:0 },
+        varsign: { r: /\$(?=\w)/g,      css: STYLE.nominal,       p:0 },
+        numexp:  { r: /\b\d+[x\.\+\-\*\/]\d+\b/g,  css: STYLE.numeric,    p:1 }
       },
       paramlist_regex: ''
     },
@@ -171,7 +172,7 @@
     { r: /[{}]/g,                 css: '',               p:0 }
   ];
 
-  var cache, debug_mode=1;
+  var cache, debug_mode=0;
 
   function extend(origin, more) {
     if(!origin || !more) return origin;
