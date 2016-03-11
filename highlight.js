@@ -129,11 +129,12 @@
     'Bash': {
       regex: {
         keyword : 'if then else elif fi for while in do done case esac local set until true false',
-        built_in: 'break cd continue eval exec exit export getopts pwd return shift test alias trap bash tar wget sudo yum make git',
+        built_in: 'break continue eval exec exit export getopts pwd return shift test trap bash',
         ref_ctor: /\b(?:()(\S+)(?==)|(function)\b\s*([$\w]*))/g,
-        param1:  { r: /\s--\w\S+/g,     style: {color: '#383'},   p:0 },
-        param2:  { r: /\s-\S+/g,        style: {color: '#099'},   p:0 },
-        comment: { r: /#.*/g,           style: {color: 'gray'},   p:0 },
+        param1:  { r: /\s--\w[^\s=]+=?/g,     style: {color: '#337733'},   p:0 },
+        param2:  { r: /\s-\S+/g,              style: {color: '#009999'},   p:0 },
+        comment: { r: /#.*/g,                 style: {color: 'gray'},      p:0 },
+        metavar: { r: /[\b[A-Z_\d]+\b/g,      style: {color: '#7777DD'},   p:0 },
         posvar:  { r: /\$[\d?!#]+/g,    css: STYLE.nominal,       p:0 },
         varsign: { r: /\$(?=\w)/g,      css: STYLE.nominal,       p:0 },
         numexp:  { r: /\b\d+[x\.\+\-\*\/]\d+\b/g,  css: STYLE.numeric,    p:1 }
